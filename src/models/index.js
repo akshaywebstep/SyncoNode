@@ -47,6 +47,8 @@ const models = {
   Venue: require("./admin/venue/venue"),
   //Class Schedule
   ClassSchedule: require("./admin/classSchedule/ClassSchedule"),
+  //cancel class session
+  ClassSession: require("./admin/classSchedule/CancelClass"),
 };
 
 // =================== Apply Model-Level Associations =================== //
@@ -82,11 +84,12 @@ const {
   Term,
   Venue,
   ClassSchedule,
+  ClassSession,
 } = models;
 
 // link with session exercise
 SessionPlanGroup.belongsTo(SessionExercise, {
-  foreignKey: "sessionExerciseId",
+  foreignKey: "sessionExerciseIds",
   as: "exercise",
 });
 
@@ -133,6 +136,10 @@ ClassSchedule.belongsTo(Venue, {
 
 Venue.belongsTo(Term, { foreignKey: "termId", as: "term" });
 
+// ✅ Association with ClassSchedule
+ClassSchedule.hasMany(ClassSession, { foreignKey: "classScheduleId" });
+ClassSession.belongsTo(ClassSchedule, { foreignKey: "classScheduleId" });
+
 // ====================== 📦 Module Exports ====================== //
 module.exports = {
   sequelize,
@@ -167,4 +174,5 @@ module.exports = {
 
   Venue,
   ClassSchedule,
+  ClassSession,
 };

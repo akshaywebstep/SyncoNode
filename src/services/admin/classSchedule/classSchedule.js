@@ -35,6 +35,7 @@ exports.updateClass = async (id, data) => {
 // ✅ Get all classes (with venue info)
 exports.getAllClasses = async () => {
   try {
+    // ✅ Fetch classes → venue → term → sessionPlanGroup
     const classes = await ClassSchedule.findAll({
       order: [["id", "ASC"]],
       include: [
@@ -46,23 +47,58 @@ exports.getAllClasses = async () => {
               model: Term,
               as: "term",
               include: [
-                { model: TermGroup, as: "termGroup" }, // ✅ Term → TermGroup
-                {
-                  model: SessionPlanGroup,
-                  as: "sessionPlanGroup", // ✅ Term → SessionPlanGroup
-                  include: [
-                    {
-                      model: SessionExercise, // ✅ SessionPlanGroup → SessionExercise
-                      as: "exercise",
-                    },
-                  ],
-                },
+                { model: TermGroup, as: "termGroup" },
+                { model: SessionPlanGroup, as: "sessionPlanGroup" },
               ],
             },
           ],
         },
       ],
     });
+
+    // ✅ Loop over each class & process SessionPlanGroup
+    for (const cls of classes) {
+      const spg = cls.venue?.term?.sessionPlanGroup;
+
+      if (spg?.levels) {
+        // 1️⃣ Parse levels safely
+        let parsedLevels;
+        try {
+          parsedLevels =
+            typeof spg.levels === "string"
+              ? JSON.parse(spg.levels)
+              : spg.levels;
+        } catch (err) {
+          console.warn(`⚠️ Could not parse levels for SPG ID ${spg.id}`);
+          parsedLevels = {};
+        }
+
+        // 2️⃣ Collect all sessionExerciseIds
+        const allIds = [];
+        Object.values(parsedLevels).forEach((levelArray) => {
+          levelArray.forEach((item) => {
+            if (Array.isArray(item.sessionExerciseId)) {
+              allIds.push(...item.sessionExerciseId);
+            }
+          });
+        });
+
+        const uniqueIds = [...new Set(allIds)];
+
+        // 3️⃣ Fetch exercises if IDs exist
+        let exercises = [];
+        if (uniqueIds.length > 0) {
+          exercises = await SessionExercise.findAll({
+            where: { id: uniqueIds },
+            attributes: ["id", "title", "description", "duration"], // ✅ select only needed fields
+          });
+        }
+
+        // 4️⃣ Attach parsed levels + actual exercises
+        spg.dataValues.levels = parsedLevels; // ✅ Replace JSON string
+        spg.dataValues.exercises = exercises; // ✅ Add actual exercises
+      }
+    }
 
     return { status: true, data: classes };
   } catch (error) {
@@ -74,6 +110,7 @@ exports.getAllClasses = async () => {
 // ✅ Get single class by ID with FULL venue/term/sessionPlanGroup/exercise details
 exports.getClassByIdWithFullDetails = async (classId) => {
   try {
+    // ✅ Fetch class with venue → term → sessionPlanGroup
     const cls = await ClassSchedule.findByPk(classId, {
       include: [
         {
@@ -84,17 +121,8 @@ exports.getClassByIdWithFullDetails = async (classId) => {
               model: Term,
               as: "term",
               include: [
-                { model: TermGroup, as: "termGroup" }, // ✅ termGroup nested
-                {
-                  model: SessionPlanGroup,
-                  as: "sessionPlanGroup",
-                  include: [
-                    {
-                      model: SessionExercise, // ✅ nested exercise details
-                      as: "exercise",
-                    },
-                  ],
-                },
+                { model: TermGroup, as: "termGroup" },
+                { model: SessionPlanGroup, as: "sessionPlanGroup" },
               ],
             },
           ],
@@ -104,6 +132,46 @@ exports.getClassByIdWithFullDetails = async (classId) => {
 
     if (!cls) {
       return { status: false, message: "Class not found" };
+    }
+
+    // ✅ Extract sessionPlanGroup
+    const spg = cls.venue?.term?.sessionPlanGroup;
+
+    if (spg?.levels) {
+      // 1️⃣ Parse JSON safely
+      let parsedLevels;
+      try {
+        parsedLevels =
+          typeof spg.levels === "string" ? JSON.parse(spg.levels) : spg.levels;
+      } catch (err) {
+        console.warn(`⚠️ Could not parse levels for SPG ID ${spg.id}`);
+        parsedLevels = {};
+      }
+
+      // 2️⃣ Collect all unique sessionExerciseIds
+      const allIds = [];
+      Object.values(parsedLevels).forEach((levelArray) => {
+        levelArray.forEach((item) => {
+          if (Array.isArray(item.sessionExerciseId)) {
+            allIds.push(...item.sessionExerciseId);
+          }
+        });
+      });
+
+      const uniqueIds = [...new Set(allIds)];
+
+      // 3️⃣ Fetch exercise details if IDs exist
+      let exercises = [];
+      if (uniqueIds.length > 0) {
+        exercises = await SessionExercise.findAll({
+          where: { id: uniqueIds },
+          attributes: ["id", "title", "description", "duration"],
+        });
+      }
+
+      // 4️⃣ Attach parsed levels + exercises
+      spg.dataValues.levels = parsedLevels; // ✅ Replace JSON string with parsed object
+      spg.dataValues.exercises = exercises; // ✅ Add full details
     }
 
     return {

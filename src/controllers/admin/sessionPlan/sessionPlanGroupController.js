@@ -1,118 +1,73 @@
-const path = require("path");
 const { validateFormData } = require("../../../utils/validateFormData");
-const { saveFile } = require("../../../utils/fileHandler");
-const { logActivity } = require("../../../utils/admin/activityLogger");
 const SessionPlanGroupService = require("../../../services/admin/sessionPlan/sessionPlanGroup");
+const { logActivity } = require("../../../utils/admin/activityLogger");
 
 const DEBUG = process.env.DEBUG === "true";
 const PANEL = "admin";
 const MODULE = "session-plan-group";
 
+// ✅ CREATE Session Plan Group
 exports.createSessionPlanGroup = async (req, res) => {
+  const { groupName, levels } = req.body;
+  const files = req.files || {};
+
+  if (DEBUG) {
+    console.log("📥 Received request to create session plan group");
+    console.log("📝 Form Data:", req.body);
+    console.log("📎 Uploaded Files:", files);
+  }
+
+  // ✅ Validation
+  const validation = validateFormData(req.body, {
+    requiredFields: ["groupName", "levels"],
+  });
+
+  if (!validation.isValid) {
+    if (DEBUG) console.log("❌ Validation failed:", validation.error);
+    await logActivity(req, PANEL, MODULE, "create", validation.error, false);
+    return res.status(400).json({ status: false, ...validation });
+  }
+
+  // ✅ Handle file paths
+  const bannerUrl = files.banner ? `uploads/${files.banner[0].filename}` : null;
+  const videoUrl = files.video ? `uploads/${files.video[0].filename}` : null;
+
+  // ✅ Parse levels JSON safely
+  let parsedLevels;
   try {
-    const formData = req.body;
-    const files = req.files || {};
+    parsedLevels = typeof levels === "string" ? JSON.parse(levels) : levels;
+  } catch (err) {
+    return res
+      .status(400)
+      .json({ status: false, message: "Invalid JSON for levels" });
+  }
 
-    if (DEBUG) {
-      console.log("📥 STEP 1: Received request to create session plan group");
-      console.log("📝 Form Data:", formData);
-      console.log("📎 Uploaded Files:", Object.keys(files));
-    }
-
-    // ✅ Step 2: Validate form data
-    const validation = validateFormData(formData, {
-      requiredFields: ["groupName", "level"],
-      fileExtensionValidations: {
-        banner: ["jpg", "jpeg", "png", "webp"],
-        video: ["mp4", "mov", "mpeg"],
-      },
-    });
-
-    if (!validation.isValid) {
-      if (DEBUG) console.log("❌ Validation failed:", validation.error);
-      await logActivity(req, PANEL, MODULE, "create", validation.error, false);
-      return res.status(400).json({
-        status: false,
-        error: validation.error,
-        message: validation.message,
-      });
-    }
-
-    // ✅ Step 3: Prepare file paths
-    const groupId = `grp_${Date.now()}`;
-    let bannerUrl = "";
-    let videoUrl = "";
-
-    // ✅ Save banner file if present
-    if (files.banner?.[0]) {
-      const banner = files.banner[0];
-      const ext = path.extname(banner.originalname).toLowerCase();
-      const filename = `${Date.now()}_${Math.floor(Math.random() * 1e6)}${ext}`;
-      const fullPath = path.join(
-        process.cwd(),
-        "uploads",
-        "sessionPlan",
-        groupId,
-        "banner",
-        filename
-      );
-      bannerUrl = `uploads/sessionPlan/${groupId}/banner/${filename}`;
-      await saveFile(banner, fullPath);
-    }
-
-    // ✅ Save video file if present
-    if (files.video?.[0]) {
-      const video = files.video[0];
-      const ext = path.extname(video.originalname).toLowerCase();
-      const filename = `${Date.now()}_${Math.floor(Math.random() * 1e6)}${ext}`;
-      const fullPath = path.join(
-        process.cwd(),
-        "uploads",
-        "sessionPlan",
-        groupId,
-        "videos",
-        filename
-      );
-      videoUrl = `uploads/sessionPlan/${groupId}/videos/${filename}`;
-      await saveFile(video, fullPath);
-    }
-
-    // ✅ Step 4: Create session plan group via service
+  try {
     const result = await SessionPlanGroupService.createSessionPlanGroup({
-      groupName: formData.groupName,
-      level: formData.level,
-      player: formData.player || null,
-      skillOfTheDay: formData.skillOfTheDay || null,
-      description: formData.description || null,
-      sessionExerciseId: formData.sessionExerciseId || null,
+      groupName,
       bannerUrl,
       videoUrl,
+      levels: parsedLevels,
     });
 
     if (!result.status) {
+      if (DEBUG) console.log("⚠️ Creation failed:", result.message);
       await logActivity(req, PANEL, MODULE, "create", result, false);
-      return res.status(500).json(result);
+      return res
+        .status(400)
+        .json({ status: false, message: result.message, data: result.data });
     }
 
-    // ✅ Step 5: Log and return success
-    await logActivity(
-      req,
-      PANEL,
-      MODULE,
-      "create",
-      {
-        oneLineMessage: `Created session plan group "${formData.groupName}" [${formData.level}]`,
-      },
-      true
-    );
+    if (DEBUG) console.log("✅ Session Plan Group created:", result.data);
+    await logActivity(req, PANEL, MODULE, "create", result, true);
 
     return res.status(201).json({
       status: true,
-      message: "Session plan group created successfully.",
+      message: "Session Plan Group created successfully.",
       data: result.data,
     });
   } catch (error) {
-    console.error("❌ Error creating group:", error);
+    console.error("❌ Server error during Session Plan Group creation:", error);
     await logActivity(
       req,
       PANEL,
@@ -125,15 +80,22 @@ exports.createSessionPlanGroup = async (req, res) => {
   }
 };
 
-exports.getSessionPlanGroups = async (req, res) => {
-  if (DEBUG) console.log("📋 Request to list all session plan groups");
+// ✅ GET ALL Session Plan Groups
+exports.getAllSessionPlanGroups = async (req, res) => {
+  if (DEBUG) console.log("📥 Fetching all session plan groups...");
 
   try {
-    const result = await SessionPlanGroupService.getSessionPlanGroups();
+    const result = await SessionPlanGroupService.getAllSessionPlanGroups();
 
     if (!result.status) {
+      if (DEBUG) console.log("⚠️ Fetch failed:", result.message);
       await logActivity(req, PANEL, MODULE, "list", result, false);
-      return res.status(500).json(result);
+      return res.status(500).json({ status: false, message: result.message });
+    }
+
+    if (DEBUG) {
+      console.log("✅ Session plan groups fetched successfully");
+      console.table(result.data.map((g) => ({ id: g.id, name: g.groupName })));
     }
 
     await logActivity(
@@ -141,9 +103,7 @@ exports.getSessionPlanGroups = async (req, res) => {
       PANEL,
       MODULE,
       "list",
-      {
-        oneLineMessage: `Fetched ${result.data.length} group(s)`,
-      },
+      { oneLineMessage: `Fetched ${result.data.length} session plan groups.` },
       true
     );
 
@@ -153,7 +113,7 @@ exports.getSessionPlanGroups = async (req, res) => {
       data: result.data,
     });
   } catch (error) {
-    console.error("❌ List Groups Error:", error);
+    console.error("❌ Error fetching session plan groups:", error);
     await logActivity(
       req,
       PANEL,
@@ -166,145 +126,108 @@ exports.getSessionPlanGroups = async (req, res) => {
   }
 };
 
-exports.getSessionPlanGroupById = async (req, res) => {
+// ✅ GET Session Plan Group by ID
+exports.getSessionPlanGroupDetails = async (req, res) => {
   const { id } = req.params;
-  if (DEBUG) console.log("🔍 Fetching session plan group ID:", id);
+  if (DEBUG) console.log(`🔍 Fetching session plan group with ID: ${id}`);
 
   try {
     const result = await SessionPlanGroupService.getSessionPlanGroupById(id);
 
     if (!result.status) {
-      await logActivity(req, PANEL, MODULE, "getById", result, false);
+      if (DEBUG) console.log("⚠️ Not found:", result.message);
       return res.status(404).json({ status: false, message: result.message });
     }
 
+    if (DEBUG) console.log("✅ Data fetched:", result.data);
     await logActivity(
       req,
       PANEL,
       MODULE,
       "getById",
-      {
-        oneLineMessage: `Fetched group ID: ${id}`,
-      },
+      { oneLineMessage: `Fetched group ID: ${id}` },
       true
     );
 
     return res.status(200).json({
       status: true,
-      message: "Fetched session plan group successfully.",
+      message: "Session Plan Group fetched successfully.",
       data: result.data,
     });
   } catch (error) {
-    console.error("❌ Fetch Group Error:", error);
-    await logActivity(
-      req,
-      PANEL,
-      MODULE,
-      "getById",
-      { oneLineMessage: error.message },
-      false
-    );
+    console.error("❌ Error fetching session plan group:", error);
     return res.status(500).json({ status: false, message: "Server error." });
   }
 };
 
+// ✅ UPDATE Session Plan Group
 exports.updateSessionPlanGroup = async (req, res) => {
   const { id } = req.params;
-  const formData = req.body;
+  const { groupName, levels } = req.body;
   const files = req.files || {};
 
-  if (DEBUG) {
-    console.log("🛠️ Updating session plan group ID:", id);
-    console.log("📝 Received form data:", formData);
-    console.log("📎 Uploaded files:", Object.keys(files));
-  }
+  if (DEBUG) console.log(`✏️ Updating Session Plan Group ID: ${id}`, req.body);
 
-  const validation = validateFormData(formData, {
-    requiredFields: ["groupName", "level"],
-    fileExtensionValidations: {
-      banner: ["jpg", "jpeg", "png", "webp"],
-      video: ["mp4", "mov", "mpeg"],
-    },
-  });
+  // ✅ File handling (ignored if not required)
+  const bannerUrl = files.banner
+    ? `uploads/${files.banner[0].filename}`
+    : undefined;
+  const videoUrl = files.video
+    ? `uploads/${files.video[0].filename}`
+    : undefined;
 
-  if (!validation.isValid) {
-    await logActivity(req, PANEL, MODULE, "update", validation, false);
-    return res.status(400).json({ status: false, ...validation });
+  // ✅ Parse levels JSON
+  let parsedLevels;
+  if (levels) {
+    try {
+      parsedLevels = typeof levels === "string" ? JSON.parse(levels) : levels;
+    } catch (err) {
+      return res.status(400).json({
+        status: false,
+        message: "Invalid JSON format for levels",
+      });
+    }
   }
 
   try {
-    const updatePayload = {
-      groupName: formData.groupName,
-      level: formData.level,
-      player: formData.player || null,
-      skillOfTheDay: formData.skillOfTheDay || null,
-      description: formData.description || null,
-      sessionExerciseId: formData.sessionExerciseId || null,
-    };
-
-    // ✅ Handle banner upload if provided
-    if (files.banner?.[0]) {
-      const banner = files.banner[0];
-      const ext = path.extname(banner.originalname).toLowerCase();
-      const filename = `${Date.now()}_${Math.floor(Math.random() * 1e6)}${ext}`;
-      const fullPath = path.join(
-        process.cwd(),
-        "uploads",
-        "sessionPlan",
-        `${id}`,
-        "banner",
-        filename
-      );
-      await saveFile(banner, fullPath);
-      updatePayload.bannerUrl = `uploads/sessionPlan/${id}/banner/${filename}`;
-    }
-
-    // ✅ Handle video upload if provided
-    if (files.video?.[0]) {
-      const video = files.video[0];
-      const ext = path.extname(video.originalname).toLowerCase();
-      const filename = `${Date.now()}_${Math.floor(Math.random() * 1e6)}${ext}`;
-      const fullPath = path.join(
-        process.cwd(),
-        "uploads",
-        "sessionPlan",
-        `${id}`,
-        "videos",
-        filename
-      );
-      await saveFile(video, fullPath);
-      updatePayload.videoUrl = `uploads/sessionPlan/${id}/videos/${filename}`;
-    }
-
-    // ✅ Call service
-    const result = await SessionPlanGroupService.updateSessionPlanGroup(
-      id,
-      updatePayload
-    );
+    const result = await SessionPlanGroupService.updateSessionPlanGroup(id, {
+      groupName,
+      bannerUrl,
+      videoUrl,
+      levels: parsedLevels,
+    });
 
     if (!result.status) {
-      await logActivity(req, PANEL, MODULE, "update", result, false);
-      return res.status(500).json(result);
+      if (DEBUG) console.log("⚠️ Update failed:", result.message);
+      return res.status(404).json(result);
     }
+
+    const updated = result.data;
+
+    // ✅ Extract only required fields
+    const responseData = {
+      groupName: updated.groupName,
+      levels: updated.levels,
+    };
+
+    if (DEBUG) console.log("✅ Clean Response:", responseData);
 
     await logActivity(
       req,
       PANEL,
       MODULE,
       "update",
-      {
-        oneLineMessage: `Updated session plan group ID: ${id}`,
-      },
+      { oneLineMessage: `Updated group ID: ${id}` },
       true
     );
 
     return res.status(200).json({
       status: true,
-      message: "Session plan group updated successfully.",
-      data: result.data,
+      message: "Session Plan Group updated successfully.",
+      data: responseData,
     });
   } catch (error) {
-    console.error("❌ Update Group Error:", error);
+    console.error("❌ Error updating session plan group:", error);
     await logActivity(
       req,
       PANEL,
@@ -317,34 +240,35 @@ exports.updateSessionPlanGroup = async (req, res) => {
   }
 };
 
+// ✅ DELETE Session Plan Group
 exports.deleteSessionPlanGroup = async (req, res) => {
   const { id } = req.params;
-  if (DEBUG) console.log("🗑️ Deleting group ID:", id);
+  if (DEBUG) console.log(`🗑️ Deleting session plan group with ID: ${id}`);
 
   try {
     const result = await SessionPlanGroupService.deleteSessionPlanGroup(id);
 
     if (!result.status) {
-      await logActivity(req, PANEL, MODULE, "delete", result, false);
-      return res.status(500).json(result);
+      if (DEBUG) console.log("⚠️ Delete failed:", result.message);
+      return res.status(404).json({ status: false, message: result.message });
     }
 
+    if (DEBUG) console.log("✅ Session Plan Group deleted");
     await logActivity(
       req,
       PANEL,
       MODULE,
       "delete",
-      {
-        oneLineMessage: `Deleted session plan group ID: ${id}`,
-      },
+      { oneLineMessage: `Deleted group ID: ${id}` },
       true
     );
 
-    return res
-      .status(200)
-      .json({ status: true, message: "Group deleted successfully." });
+    return res.status(200).json({
+      status: true,
+      message: "Session Plan Group deleted successfully.",
+    });
   } catch (error) {
-    console.error("❌ Delete Group Error:", error);
+    console.error("❌ Error deleting session plan group:", error);
     await logActivity(
       req,
       PANEL,

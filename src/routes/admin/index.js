@@ -25,6 +25,7 @@ router.use("/term-group", require("./termGroupRoutes"));
 router.use("/term", require("./termRoutes"));
 router.use("/venue", require("./venueRoutes"));
 router.use("/class-schedule", require("./classScheduleRoutes"));
+router.use("/cancel-class", require("./cancelClassRoutes"));
 
 // Base: /api/admin/admin
 router.post("/", upload.single("profile"), authMiddleware, createAdmin);

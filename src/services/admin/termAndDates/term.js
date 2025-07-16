@@ -1,4 +1,9 @@
-const { Term, TermGroup, SessionPlanGroup } = require("../../../models");
+const {
+  Term,
+  TermGroup,
+  SessionPlanGroup,
+  SessionExercise,
+} = require("../../../models");
 
 // ✅ CREATE TERM
 exports.createTerm = async (data) => {
@@ -19,20 +24,17 @@ exports.getAllTerms = async () => {
         {
           model: TermGroup,
           as: "termGroup",
-          attributes: ["id", "name"], // Only name & ID needed from TermGroup
+          attributes: ["id", "name"], // Only name & ID needed
         },
         {
           model: SessionPlanGroup,
           as: "sessionPlanGroup",
           attributes: [
             "id",
-            "level",
+            "levels",
             "groupName",
             "videoUrl",
             "bannerUrl",
-            "player",
-            "skillOfTheDay",
-            "description",
             "createdAt",
             "updatedAt",
           ],
@@ -40,8 +42,53 @@ exports.getAllTerms = async () => {
       ],
     });
 
+    // ✅ Loop through all terms and parse SessionPlanGroup levels
+    for (const term of terms) {
+      const spg = term.sessionPlanGroup;
+
+      if (spg && spg.levels) {
+        // ✅ Parse levels JSON safely
+        let parsedLevels;
+        try {
+          parsedLevels =
+            typeof spg.levels === "string"
+              ? JSON.parse(spg.levels)
+              : spg.levels;
+        } catch (err) {
+          console.warn(`⚠️ Could not parse levels for SPG ID ${spg.id}`);
+          parsedLevels = {};
+        }
+
+        // ✅ Collect all exercise IDs
+        const allIds = [];
+        Object.values(parsedLevels).forEach((levelArray) => {
+          levelArray.forEach((item) => {
+            if (Array.isArray(item.sessionExerciseId)) {
+              allIds.push(...item.sessionExerciseId);
+            }
+          });
+        });
+
+        const uniqueIds = [...new Set(allIds)];
+
+        // ✅ Fetch exercise details
+        let exercises = [];
+        if (uniqueIds.length > 0) {
+          exercises = await SessionExercise.findAll({
+            where: { id: uniqueIds },
+            attributes: ["id", "title", "description", "duration"],
+          });
+        }
+
+        // ✅ Replace raw levels + attach exercises
+        spg.dataValues.levels = parsedLevels;
+        spg.dataValues.exercises = exercises;
+      }
+    }
+
     return { status: true, data: terms };
   } catch (error) {
+    console.error("❌ getAllTerms Error:", error.message);
     return { status: false, message: "Fetch terms failed. " + error.message };
   }
 };
@@ -61,13 +108,10 @@ exports.getTermById = async (id) => {
           as: "sessionPlanGroup",
           attributes: [
             "id",
-            "level",
             "groupName",
+            "levels",
             "videoUrl",
             "bannerUrl",
-            "player",
-            "skillOfTheDay",
-            "description",
             "createdAt",
             "updatedAt",
           ],
@@ -79,8 +123,44 @@ exports.getTermById = async (id) => {
       return { status: false, message: "Term not found." };
     }
 
+    const spg = term.sessionPlanGroup;
+
+    if (spg && spg.levels) {
+      let parsedLevels;
+      try {
+        parsedLevels =
+          typeof spg.levels === "string" ? JSON.parse(spg.levels) : spg.levels;
+      } catch (err) {
+        console.warn(`⚠️ Could not parse levels for SPG ID ${spg.id}`);
+        parsedLevels = {};
+      }
+
+      const allIds = [];
+      Object.values(parsedLevels).forEach((levelArray) => {
+        levelArray.forEach((item) => {
+          if (Array.isArray(item.sessionExerciseId)) {
+            allIds.push(...item.sessionExerciseId);
+          }
+        });
+      });
+
+      const uniqueIds = [...new Set(allIds)];
+
+      let exercises = [];
+      if (uniqueIds.length > 0) {
+        exercises = await SessionExercise.findAll({
+          where: { id: uniqueIds },
+          attributes: ["id", "title", "description", "duration"],
+        });
+      }
+
+      spg.dataValues.levels = parsedLevels;
+      spg.dataValues.exercises = exercises;
+    }
+
     return { status: true, data: term };
   } catch (error) {
+    console.error("❌ getTermById Error:", error.message);
     return { status: false, message: "Get term failed. " + error.message };
   }
 };

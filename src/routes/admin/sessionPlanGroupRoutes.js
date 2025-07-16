@@ -1,53 +1,48 @@
-// routes/admin/sessionPlan/sessionPlanGroup.js
-
 const express = require("express");
 const router = express.Router();
 const multer = require("multer");
 const authMiddleware = require("../../middleware/admin/authenticate");
-const upload = multer(); // In-memory multer storage
+
+// ✅ Multer in-memory storage for banner & video uploads
+const upload = multer();
 
 const {
   createSessionPlanGroup,
-  getSessionPlanGroups,
-  getSessionPlanGroupById,
+  getAllSessionPlanGroups,
+  getSessionPlanGroupDetails,
   updateSessionPlanGroup,
   deleteSessionPlanGroup,
-  getSessionPlanPreview,
 } = require("../../controllers/admin/sessionPlan/sessionPlanGroupController");
 
-// Base Route: /api/admin/session-plan-group
-
-// ✅ Create
+// ✅ Create Session Plan Group
 router.post(
   "/",
   authMiddleware,
   upload.fields([
-    // { name: "image", maxCount: 1 },
     { name: "video", maxCount: 1 },
-    { name: "banner", maxCount: 1 }, // optional if your controller uses "banner"
+    { name: "banner", maxCount: 1 },
   ]),
   createSessionPlanGroup
 );
 
-// ✅ Get All
-router.get("/", authMiddleware, getSessionPlanGroups);
+// ✅ Get All Session Plan Groups
+router.get("/", authMiddleware, getAllSessionPlanGroups);
 
-// ✅ Get by ID
-router.get("/:id", authMiddleware, getSessionPlanGroupById);
+// ✅ Get Session Plan Group by ID
+router.get("/:id", authMiddleware, getSessionPlanGroupDetails);
 
-// ✅ Update
+// ✅ Update Session Plan Group
 router.put(
   "/:id",
   authMiddleware,
   upload.fields([
-    { name: "image", maxCount: 1 },
     { name: "video", maxCount: 1 },
-    { name: "banner", maxCount: 1 }, // optional if your update controller uses "banner"
+    { name: "banner", maxCount: 1 },
   ]),
   updateSessionPlanGroup
 );
 
-// ✅ Delete
+// ✅ Delete Session Plan Group
 router.delete("/:id", authMiddleware, deleteSessionPlanGroup);
 
 module.exports = router;

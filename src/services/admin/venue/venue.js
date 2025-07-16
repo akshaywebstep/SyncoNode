@@ -1,4 +1,10 @@
-const { Venue, Term, TermGroup, SessionPlanGroup } = require("../../../models");
+const {
+  Venue,
+  Term,
+  TermGroup,
+  SessionPlanGroup,
+  SessionExercise,
+} = require("../../../models");
 
 const { Op } = require("sequelize");
 
@@ -41,12 +47,9 @@ exports.getAllVenues = async () => {
               attributes: [
                 "id",
                 "groupName",
-                "level",
+                "levels",
                 "videoUrl",
                 "bannerUrl",
-                "player",
-                "skillOfTheDay",
-                "description",
               ],
             },
           ],
@@ -54,8 +57,53 @@ exports.getAllVenues = async () => {
       ],
     });
 
+    // ✅ Loop through venues → term → sessionPlanGroup
+    for (const venue of venues) {
+      const term = venue.term;
+      const spg = term?.sessionPlanGroup;
+
+      if (spg && spg.levels) {
+        let parsedLevels;
+        try {
+          parsedLevels =
+            typeof spg.levels === "string"
+              ? JSON.parse(spg.levels)
+              : spg.levels;
+        } catch (err) {
+          console.warn(`⚠️ Could not parse levels for SPG ID ${spg.id}`);
+          parsedLevels = {};
+        }
+
+        // ✅ Collect all exercise IDs
+        const allIds = [];
+        Object.values(parsedLevels).forEach((levelArray) => {
+          levelArray.forEach((item) => {
+            if (Array.isArray(item.sessionExerciseId)) {
+              allIds.push(...item.sessionExerciseId);
+            }
+          });
+        });
+
+        const uniqueIds = [...new Set(allIds)];
+
+        // ✅ Fetch exercises
+        let exercises = [];
+        if (uniqueIds.length > 0) {
+          exercises = await SessionExercise.findAll({
+            where: { id: uniqueIds },
+            attributes: ["id", "title", "description", "duration"],
+          });
+        }
+
+        // ✅ Replace levels with parsed JSON + attach exercises
+        spg.dataValues.levels = parsedLevels;
+        spg.dataValues.exercises = exercises;
+      }
+    }
+
     return { status: true, data: venues };
   } catch (error) {
+    console.error("❌ getAllVenues Error:", error.message);
     return { status: false, message: error.message };
   }
 };
@@ -89,12 +137,9 @@ exports.getVenueById = async (id) => {
               attributes: [
                 "id",
                 "groupName",
-                "level",
+                "levels",
                 "videoUrl",
                 "bannerUrl",
-                "player",
-                "skillOfTheDay",
-                "description",
               ],
             },
           ],
@@ -106,8 +151,45 @@ exports.getVenueById = async (id) => {
       return { status: false, message: "Venue not found." };
     }
 
+    const term = venue.term;
+    const spg = term?.sessionPlanGroup;
+
+    if (spg && spg.levels) {
+      let parsedLevels;
+      try {
+        parsedLevels =
+          typeof spg.levels === "string" ? JSON.parse(spg.levels) : spg.levels;
+      } catch (err) {
+        console.warn(`⚠️ Could not parse levels for SPG ID ${spg.id}`);
+        parsedLevels = {};
+      }
+
+      const allIds = [];
+      Object.values(parsedLevels).forEach((levelArray) => {
+        levelArray.forEach((item) => {
+          if (Array.isArray(item.sessionExerciseId)) {
+            allIds.push(...item.sessionExerciseId);
+          }
+        });
+      });
+
+      const uniqueIds = [...new Set(allIds)];
+
+      let exercises = [];
+      if (uniqueIds.length > 0) {
+        exercises = await SessionExercise.findAll({
+          where: { id: uniqueIds },
+          attributes: ["id", "title", "description", "duration"],
+        });
+      }
+
+      spg.dataValues.levels = parsedLevels;
+      spg.dataValues.exercises = exercises;
+    }
+
     return { status: true, data: venue };
   } catch (error) {
+    console.error("❌ getVenueById Error:", error.message);
     return { status: false, message: error.message };
   }
 };
@@ -139,12 +221,9 @@ exports.updateVenue = async (id, data) => {
               attributes: [
                 "id",
                 "groupName",
-                "level",
+                "levels",
                 "videoUrl",
                 "bannerUrl",
-                "player",
-                "skillOfTheDay",
-                "description",
               ],
             },
           ],
