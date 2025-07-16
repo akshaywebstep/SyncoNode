@@ -2,14 +2,23 @@ const { validateFormData } = require("../../../utils/validateFormData");
 const PaymentPlan = require("../../../services/admin/payment/paymentPlan");
 const { logActivity } = require("../../../utils/admin/activityLogger");
 
-const DEBUG = process.env.DEBUG === 'true';
-const PANEL = 'admin';
-const MODULE = 'payment-plan';
+const DEBUG = process.env.DEBUG === "true";
+const PANEL = "admin";
+const MODULE = "payment-plan";
 
 // ✅ CREATE Plan
 exports.createPaymentPlan = async (req, res) => {
   const formData = req.body;
-  const { title, price, interval, duration, students, joiningFee, HolidayCampPackage, termsAndCondition } = formData;
+  const {
+    title,
+    price,
+    interval,
+    duration,
+    students,
+    joiningFee,
+    HolidayCampPackage,
+    termsAndCondition,
+  } = formData;
 
   if (DEBUG) {
     console.log("📥 STEP 1: Received request to create a new payment plan");
@@ -22,7 +31,7 @@ exports.createPaymentPlan = async (req, res) => {
 
   if (!validation.isValid) {
     if (DEBUG) console.log("❌ STEP 2: Validation failed:", validation.error);
-    await logActivity(req, PANEL, MODULE, 'create', validation.error, false);
+    await logActivity(req, PANEL, MODULE, "create", validation.error, false);
     return res.status(400).json({
       status: false,
       error: validation.error,
@@ -31,11 +40,20 @@ exports.createPaymentPlan = async (req, res) => {
   }
 
   try {
-    const result = await PaymentPlan.createPlan({ title, price, interval, duration, students, joiningFee, HolidayCampPackage, termsAndCondition });
+    const result = await PaymentPlan.createPlan({
+      title,
+      price,
+      interval,
+      duration,
+      students,
+      joiningFee,
+      HolidayCampPackage,
+      termsAndCondition,
+    });
 
     if (!result.status) {
       if (DEBUG) console.log("⚠️ STEP 3: Creation failed:", result.message);
-      await logActivity(req, PANEL, MODULE, 'create', result, false);
+      await logActivity(req, PANEL, MODULE, "create", result, false);
       return res.status(500).json({
         status: false,
         message: result.message || "Failed to create payment plan.",
@@ -43,7 +61,7 @@ exports.createPaymentPlan = async (req, res) => {
     }
 
     if (DEBUG) console.log("✅ STEP 4: Payment plan created:", result.data);
-    await logActivity(req, PANEL, MODULE, 'create', result, true);
+    await logActivity(req, PANEL, MODULE, "create", result, true);
 
     return res.status(201).json({
       status: true,
@@ -52,7 +70,14 @@ exports.createPaymentPlan = async (req, res) => {
     });
   } catch (error) {
     console.error("❌ STEP 5: Server error during creation:", error);
-    await logActivity(req, PANEL, MODULE, 'create', { oneLineMessage: error.message }, false);
+    await logActivity(
+      req,
+      PANEL,
+      MODULE,
+      "create",
+      { oneLineMessage: error.message },
+      false
+    );
     return res.status(500).json({ status: false, message: "Server error." });
   }
 };
@@ -66,7 +91,7 @@ exports.getAllPaymentPlans = async (req, res) => {
 
     if (!result.status) {
       if (DEBUG) console.log("⚠️ Fetch failed:", result.message);
-      await logActivity(req, PANEL, MODULE, 'list', result, false);
+      await logActivity(req, PANEL, MODULE, "list", result, false);
       return res.status(500).json({ status: false, message: result.message });
     }
 
@@ -75,9 +100,16 @@ exports.getAllPaymentPlans = async (req, res) => {
       console.table(result.data);
     }
 
-    await logActivity(req, PANEL, MODULE, 'list', {
-      oneLineMessage: `Fetched ${result.data.length || 0} payment plan(s).`,
-    }, true);
+    await logActivity(
+      req,
+      PANEL,
+      MODULE,
+      "list",
+      {
+        oneLineMessage: `Fetched ${result.data.length || 0} payment plan(s).`,
+      },
+      true
+    );
 
     return res.status(200).json({
       status: true,
@@ -86,7 +118,14 @@ exports.getAllPaymentPlans = async (req, res) => {
     });
   } catch (error) {
     console.error("❌ Error fetching all plans:", error);
-    await logActivity(req, PANEL, MODULE, 'list', { oneLineMessage: error.message }, false);
+    await logActivity(
+      req,
+      PANEL,
+      MODULE,
+      "list",
+      { oneLineMessage: error.message },
+      false
+    );
     return res.status(500).json({ status: false, message: "Server error." });
   }
 };
@@ -102,14 +141,21 @@ exports.getPaymentPlanById = async (req, res) => {
 
     if (!result.status) {
       if (DEBUG) console.log("⚠️ Plan not found:", result.message);
-      await logActivity(req, PANEL, MODULE, 'getById', result, false);
+      await logActivity(req, PANEL, MODULE, "getById", result, false);
       return res.status(404).json({ status: false, message: result.message });
     }
 
     if (DEBUG) console.log("✅ Plan fetched:", result.data);
-    await logActivity(req, PANEL, MODULE, 'getById', {
-      oneLineMessage: `Fetched plan with ID: ${id}`,
-    }, true);
+    await logActivity(
+      req,
+      PANEL,
+      MODULE,
+      "getById",
+      {
+        oneLineMessage: `Fetched plan with ID: ${id}`,
+      },
+      true
+    );
 
     return res.status(200).json({
       status: true,
@@ -118,7 +164,14 @@ exports.getPaymentPlanById = async (req, res) => {
     });
   } catch (error) {
     console.error("❌ Error fetching plan by ID:", error);
-    await logActivity(req, PANEL, MODULE, 'getById', { oneLineMessage: error.message }, false);
+    await logActivity(
+      req,
+      PANEL,
+      MODULE,
+      "getById",
+      { oneLineMessage: error.message },
+      false
+    );
     return res.status(500).json({ status: false, message: "Server error." });
   }
 };
@@ -140,7 +193,7 @@ exports.updatePaymentPlan = async (req, res) => {
 
   if (!validation.isValid) {
     if (DEBUG) console.log("❌ Validation Error:", validation.error);
-    await logActivity(req, PANEL, MODULE, 'update', validation.error, false);
+    await logActivity(req, PANEL, MODULE, "update", validation.error, false);
     return res.status(400).json({
       status: false,
       error: validation.error,
@@ -149,18 +202,31 @@ exports.updatePaymentPlan = async (req, res) => {
   }
 
   try {
-    const result = await PaymentPlan.updatePlan(id, { title, price, interval, duration, students });
+    const result = await PaymentPlan.updatePlan(id, {
+      title,
+      price,
+      interval,
+      duration,
+      students,
+    });
 
     if (!result.status) {
       if (DEBUG) console.log("⚠️ Update failed:", result.message);
-      await logActivity(req, PANEL, MODULE, 'update', result, false);
+      await logActivity(req, PANEL, MODULE, "update", result, false);
       return res.status(404).json({ status: false, message: result.message });
     }
 
     if (DEBUG) console.log("✅ Plan updated successfully:", result.data);
-    await logActivity(req, PANEL, MODULE, 'update', {
-      oneLineMessage: `Updated plan with ID: ${id}`,
-    }, true);
+    await logActivity(
+      req,
+      PANEL,
+      MODULE,
+      "update",
+      {
+        oneLineMessage: `Updated plan with ID: ${id}`,
+      },
+      true
+    );
 
     return res.status(200).json({
       status: true,
@@ -169,7 +235,14 @@ exports.updatePaymentPlan = async (req, res) => {
     });
   } catch (error) {
     console.error("❌ Error updating plan:", error);
-    await logActivity(req, PANEL, MODULE, 'update', { oneLineMessage: error.message }, false);
+    await logActivity(
+      req,
+      PANEL,
+      MODULE,
+      "update",
+      { oneLineMessage: error.message },
+      false
+    );
     return res.status(500).json({ status: false, message: "Server error." });
   }
 };
@@ -185,14 +258,21 @@ exports.deletePaymentPlan = async (req, res) => {
 
     if (!result.status) {
       if (DEBUG) console.log("⚠️ Delete failed:", result.message);
-      await logActivity(req, PANEL, MODULE, 'delete', result, false);
+      await logActivity(req, PANEL, MODULE, "delete", result, false);
       return res.status(404).json({ status: false, message: result.message });
     }
 
     if (DEBUG) console.log("✅ Plan deleted successfully");
-    await logActivity(req, PANEL, MODULE, 'delete', {
-      oneLineMessage: `Deleted plan with ID: ${id}`,
-    }, true);
+    await logActivity(
+      req,
+      PANEL,
+      MODULE,
+      "delete",
+      {
+        oneLineMessage: `Deleted plan with ID: ${id}`,
+      },
+      true
+    );
 
     return res.status(200).json({
       status: true,
@@ -200,7 +280,14 @@ exports.deletePaymentPlan = async (req, res) => {
     });
   } catch (error) {
     console.error("❌ Error deleting plan:", error);
-    await logActivity(req, PANEL, MODULE, 'delete', { oneLineMessage: error.message }, false);
+    await logActivity(
+      req,
+      PANEL,
+      MODULE,
+      "delete",
+      { oneLineMessage: error.message },
+      false
+    );
     return res.status(500).json({ status: false, message: "Server error." });
   }
 };

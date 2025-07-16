@@ -14,36 +14,17 @@ app.use(cors());
 app.use(bodyParser.json());
 
 // ✅ Serve static files from /uploads
-app.use('/uploads', express.static('uploads'));
-
+app.use("/uploads", express.static("uploads"));
 
 // ✅ Auth & Profile
-app.use("/api/admin/auth", require("./routes/admin/authRoutes"));          // Login, Logout, etc.
-app.use("/api/admin/profile", require("./routes/admin/profileRoutes"));    // Admin profile CRUD
+app.use("/api/admin/auth", require("./routes/admin/authRoutes")); // Login, Logout, etc.
+app.use("/api/admin/profile", require("./routes/admin/profileRoutes")); // Admin profile CRUD
 
 // ✅ Member Management
 
-// ✅ Notifications
-app.use("/api/admin/notification", require("./routes/admin/notification/notificationRoutes"));  // Notifications (CRUD, read status)
-app.use("/api/admin/custom-notification", require("./routes/admin/notification/customNotificationRoutes"));  // Notifications (CRUD, read status)
-
-// ✅ Payments
-app.use("/api/admin/payment-plan", require("./routes/admin/payment/paymentPlanRoutes"));         // Plan definitions
-app.use("/api/admin/payment-group", require("./routes/admin/payment/paymentGroupRoutes"));       // Group definitions
-
-// ✅ Discounts
-app.use("/api/admin/discount", require("./routes/admin/discountRoutes"));  // Discount logic
-
-app.use("/api/admin", require("./routes/admin"));           // Manage Admins
-
-// ✅ Auth & Profile
-app.use("/api/member/auth", require("./routes/member/authRoutes"));          // Login, Logout, etc.
-app.use("/api/member/profile", require("./routes/member/profileRoutes"));    // Member profile CRUD
-
-// ✅ Notifications
-app.use("/api/member/notification", require("./routes/member/notification/notificationRoutes"));  // Notifications (CRUD, read status)
-
-app.use("/api/location", require("./routes/location"));           // Manage members
+app.use("/api/admin", require("./routes/admin")); // Manage Admins
+app.use("/api/location", require("./routes/location")); // Manage members
+app.use("/api/location", require("./routes/location")); // Manage members
 
 // Error handling middleware
 app.use((err, req, res, next) => {

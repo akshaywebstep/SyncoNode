@@ -34,6 +34,19 @@ const models = {
   Country: require("./admin/location/Country"),
   State: require("./admin/location/State"),
   City: require("./admin/location/City"),
+
+  //Session Plan
+  SessionExercise: require("./admin/sessionPlan/SessionExercise"),
+  SessionPlanGroup: require("./admin/sessionPlan/SessionPlanGroup"),
+
+  //Terms and Dates
+  TermGroup: require("./admin/termAndDates/TermGroup"),
+  Term: require("./admin/termAndDates/Term"),
+
+  //Venue
+  Venue: require("./admin/venue/Venue"),
+  //Class Schedule
+  ClassSchedule: require("./admin/classSchedule/ClassSchedule"),
 };
 
 // =================== Apply Model-Level Associations =================== //
@@ -46,12 +59,79 @@ Object.values(models).forEach((model) => {
 // ====================== 🔗 Manual Relationships ====================== //
 
 const {
-  Admin, AdminRole, EmailConfig, ActivityLog, Notification, NotificationRead,
-  CustomNotification, CustomNotificationRead,
-  Country, State, City, PaymentPlan, PaymentGroup,
-  PaymentGroupHasPlan, Discount, DiscountAppliesTo,
-  DiscountUsage
+  Admin,
+  AdminRole,
+  EmailConfig,
+  ActivityLog,
+  Notification,
+  NotificationRead,
+  CustomNotification,
+  CustomNotificationRead,
+  Country,
+  State,
+  City,
+  PaymentPlan,
+  PaymentGroup,
+  PaymentGroupHasPlan,
+  Discount,
+  DiscountAppliesTo,
+  DiscountUsage,
+  SessionExercise,
+  SessionPlanGroup,
+  TermGroup,
+  Term,
+  Venue,
+  ClassSchedule,
 } = models;
+
+// link with session exercise
+SessionPlanGroup.belongsTo(SessionExercise, {
+  foreignKey: "sessionExerciseId",
+  as: "exercise",
+});
+
+// ========== Term ↔ TermGroup ==========
+Term.belongsTo(TermGroup, {
+  foreignKey: "termGroupId",
+  as: "termGroup",
+});
+TermGroup.hasMany(Term, {
+  foreignKey: "termGroupId",
+  as: "terms",
+});
+
+// ========== Term ↔ SessionPlanGroup ==========
+Term.belongsTo(SessionPlanGroup, {
+  foreignKey: "sessionPlanGroupId",
+  as: "sessionPlanGroup",
+});
+SessionPlanGroup.hasMany(Term, {
+  foreignKey: "sessionPlanGroupId",
+  as: "terms",
+});
+
+// venue
+Venue.associate = (models) => {
+  Venue.belongsTo(models.Term, {
+    foreignKey: "termId",
+    as: "term",
+    onUpdate: "CASCADE",
+    onDelete: "SET NULL",
+  });
+};
+
+Venue.hasMany(ClassSchedule, {
+  foreignKey: "venueId",
+  as: "classSchedules",
+});
+
+// ✅ Define association (ClassSchedule belongsTo Venue)
+ClassSchedule.belongsTo(Venue, {
+  foreignKey: "venueId",
+  as: "venue",
+});
+
+Venue.belongsTo(Term, { foreignKey: "termId", as: "term" });
 
 // ====================== 📦 Module Exports ====================== //
 module.exports = {
@@ -78,4 +158,13 @@ module.exports = {
   Country,
   State,
   City,
+
+  SessionExercise,
+  SessionPlanGroup,
+
+  TermGroup,
+  Term,
+
+  Venue,
+  ClassSchedule,
 };

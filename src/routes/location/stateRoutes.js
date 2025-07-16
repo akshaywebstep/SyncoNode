@@ -4,10 +4,9 @@ const authMiddleware = require("../../middleware/admin/authenticate");
 
 const {
   getAllStates,
-  getAllCitiesOfState
+  getAllCitiesOfState,
 } = require("../../controllers/location/stateController");
 
-// Base: /api/admin/member/role
 router.get("/", getAllStates);
 router.get("/:stateId/city", getAllCitiesOfState);
 

@@ -16,7 +16,10 @@ exports.createAdmin = async (data) => {
 
     return {
       status: false,
-      message: error?.parent?.sqlMessage || error?.message || "Failed to create admin.",
+      message:
+        error?.parent?.sqlMessage ||
+        error?.message ||
+        "Failed to create admin.",
     };
   }
 };
@@ -52,7 +55,10 @@ exports.findAdminByEmail = async (email) => {
 
     return {
       status: false,
-      message: error?.parent?.sqlMessage || error?.message || "Error occurred while finding admin.",
+      message:
+        error?.parent?.sqlMessage ||
+        error?.message ||
+        "Error occurred while finding admin.",
     };
   }
 };
@@ -66,13 +72,13 @@ exports.getAdminById = async (id) => {
       include: [
         {
           model: AdminRole,
-          as: 'role',
-          attributes: ['id', 'role'],
+          as: "role",
+          attributes: ["id", "role"],
         },
         {
           model: Country,
-          as: 'country',
-          attributes: ['id', 'name'],
+          as: "country",
+          attributes: ["id", "name"],
         },
         /*
             {
@@ -106,7 +112,10 @@ exports.getAdminById = async (id) => {
 
     return {
       status: false,
-      message: error?.parent?.sqlMessage || error?.message || "Error occurred while fetching admin.",
+      message:
+        error?.parent?.sqlMessage ||
+        error?.message ||
+        "Error occurred while fetching admin.",
     };
   }
 };
@@ -134,7 +143,10 @@ exports.updateAdmin = async (adminId, updateData) => {
 
     return {
       status: false,
-      message: error?.parent?.sqlMessage || error?.message || "Failed to update admin.",
+      message:
+        error?.parent?.sqlMessage ||
+        error?.message ||
+        "Failed to update admin.",
     };
   }
 };
@@ -147,8 +159,8 @@ exports.getAllAdmins = async () => {
       include: [
         {
           model: AdminRole,
-          as: 'role',
-          attributes: ['id', 'role'],
+          as: "role",
+          attributes: ["id", "role"],
         },
       ],
       order: [["createdAt", "DESC"]],
@@ -164,7 +176,10 @@ exports.getAllAdmins = async () => {
 
     return {
       status: false,
-      message: error?.parent?.sqlMessage || error?.message || "Failed to fetch admins.",
+      message:
+        error?.parent?.sqlMessage ||
+        error?.message ||
+        "Failed to fetch admins.",
     };
   }
 };
@@ -172,7 +187,10 @@ exports.getAllAdmins = async () => {
 // Update password by admin ID
 exports.updatePasswordById = async (id, newPassword) => {
   try {
-    const result = await Admin.update({ password: newPassword }, { where: { id } });
+    const result = await Admin.update(
+      { password: newPassword },
+      { where: { id } }
+    );
 
     if (result[0] === 0) {
       return {
@@ -190,7 +208,10 @@ exports.updatePasswordById = async (id, newPassword) => {
 
     return {
       status: false,
-      message: error?.parent?.sqlMessage || error?.message || "Error updating password.",
+      message:
+        error?.parent?.sqlMessage ||
+        error?.message ||
+        "Error updating password.",
     };
   }
 };
@@ -224,7 +245,8 @@ exports.saveOtpToAdmin = async (adminId, otp, expiry) => {
 
     return {
       status: false,
-      message: error?.parent?.sqlMessage || error?.message || "Error saving OTP.",
+      message:
+        error?.parent?.sqlMessage || error?.message || "Error saving OTP.",
     };
   }
 };
@@ -259,7 +281,8 @@ exports.findAdminByEmailAndValidOtp = async (email, otp) => {
 
     return {
       status: false,
-      message: error?.parent?.sqlMessage || error?.message || "Error validating OTP.",
+      message:
+        error?.parent?.sqlMessage || error?.message || "Error validating OTP.",
     };
   }
 };
@@ -294,7 +317,10 @@ exports.updatePasswordAndClearOtp = async (adminId, hashedPassword) => {
 
     return {
       status: false,
-      message: error?.parent?.sqlMessage || error?.message || "Error updating password and clearing OTP.",
+      message:
+        error?.parent?.sqlMessage ||
+        error?.message ||
+        "Error updating password and clearing OTP.",
     };
   }
 };
@@ -303,7 +329,7 @@ exports.updatePasswordAndClearOtp = async (adminId, hashedPassword) => {
 exports.deleteAdmin = async (id) => {
   try {
     const result = await Admin.destroy({
-      where: { id }
+      where: { id },
     });
 
     if (result === 0) {
@@ -322,7 +348,10 @@ exports.deleteAdmin = async (id) => {
 
     return {
       status: false,
-      message: error?.parent?.sqlMessage || error?.message || "Failed to delete admin.",
+      message:
+        error?.parent?.sqlMessage ||
+        error?.message ||
+        "Failed to delete admin.",
     };
   }
 };

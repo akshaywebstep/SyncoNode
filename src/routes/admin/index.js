@@ -2,18 +2,29 @@ const express = require("express");
 const router = express.Router();
 const authMiddleware = require("../../middleware/admin/authenticate");
 const {
-    createAdmin,
-    getAllAdmins,
-    updateAdmin,
-    changeAdminStatus,
-    deleteAdmin,
-    getAdminProfile
+  createAdmin,
+  getAllAdmins,
+  updateAdmin,
+  changeAdminStatus,
+  deleteAdmin,
+  getAdminProfile,
 } = require("../../controllers/admin/adminController");
 
 const multer = require("multer");
 const upload = multer();
 
 router.use("/role", require("./roleRoutes"));
+router.use("/notification", require("./notificationRoutes"));
+router.use("/custom-notification", require("./customNotification"));
+router.use("/payment-plan", require("./paymentPlanRoutes"));
+router.use("/payment-group", require("./paymentGroupRoutes"));
+router.use("/discount", require("./discountRoutes"));
+router.use("/session-plan-group", require("./sessionPlanGroupRoutes"));
+router.use("/session-plan-exercise", require("./sessionExerciseRoutes"));
+router.use("/term-group", require("./termGroupRoutes"));
+router.use("/term", require("./termRoutes"));
+router.use("/venue", require("./venueRoutes"));
+router.use("/class-schedule", require("./classScheduleRoutes"));
 
 // Base: /api/admin/admin
 router.post("/", upload.single("profile"), authMiddleware, createAdmin);

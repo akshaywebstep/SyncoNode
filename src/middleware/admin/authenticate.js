@@ -1,15 +1,17 @@
 const { getAdminById } = require("../../services/admin/admin");
 const { verifyToken } = require("../../utils/jwt");
 
-const DEBUG = process.env.DEBUG === 'true';
+const DEBUG = process.env.DEBUG === "true";
 
 /**
  * Middleware to authenticate admins using JWT.
  * Adds validated admin info to `req.admin`.
  */
 const authMiddleware = async (req, res, next) => {
+  // console.log("🔍 Incoming request:", req.method, req.originalUrl);
   try {
     const authHeader = req.headers.authorization;
+    // console.log("🔍 Authorization header:", authHeader);
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({

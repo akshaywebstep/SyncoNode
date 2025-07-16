@@ -18,13 +18,13 @@ const validCategories = [
   "Announcements",
   "Tasks",
   "Messages",
-  "Support"
+  "Support",
 ];
 
-const DEBUG = process.env.DEBUG === 'true';
+const DEBUG = process.env.DEBUG === "true";
 
-const PANEL = 'admin';
-const MODULE = 'notification';
+const PANEL = "admin";
+const MODULE = "notification";
 
 /*
   // ✅ Create a new notification
@@ -82,12 +82,14 @@ const MODULE = 'notification';
 
 // ✅ Mark all unread notifications as read
 exports.markNotificationAsRead = async (req, res) => {
-  if (DEBUG) console.log(`📩 Marking notifications as read for Admin ID: ${req.admin.id}`);
+  if (DEBUG)
+    console.log(
+      `📩 Marking notifications as read for Admin ID: ${req.admin.id}`
+    );
 
   try {
-
     let result;
-    if (req.admin.role.toLowerCase() == 'admin') {
+    if (req.admin.role.toLowerCase() == "admin") {
       result = await notificationModel.markAsRead(req.admin.id);
     } else {
       result = await customNotificationModel.markAsRead(req.admin.id);
@@ -95,12 +97,19 @@ exports.markNotificationAsRead = async (req, res) => {
 
     if (!result.status) {
       console.error(`❌ Failed to mark as read:`, result.message);
-      await logActivity(req, PANEL, MODULE, 'markRead', result, false);
+      await logActivity(req, PANEL, MODULE, "markRead", result, false);
       return res.status(500).json({ status: false, message: result.message });
     }
 
     if (DEBUG) console.log(`✅ Marked as read:`, result.data);
-    await logActivity(req, PANEL, MODULE, 'markRead', { oneLineMessage: result.message }, true);
+    await logActivity(
+      req,
+      PANEL,
+      MODULE,
+      "markRead",
+      { oneLineMessage: result.message },
+      true
+    );
 
     return res.status(200).json({
       status: true,
@@ -109,7 +118,14 @@ exports.markNotificationAsRead = async (req, res) => {
     });
   } catch (error) {
     console.error(`❌ Error marking as read:`, error);
-    await logActivity(req, PANEL, MODULE, 'markRead', { oneLineMessage: error.message }, false);
+    await logActivity(
+      req,
+      PANEL,
+      MODULE,
+      "markRead",
+      { oneLineMessage: error.message },
+      false
+    );
     return res.status(500).json({
       status: false,
       message: "Server error while marking notifications as read.",
@@ -119,26 +135,42 @@ exports.markNotificationAsRead = async (req, res) => {
 
 // ✅ Get all notifications
 exports.getAllNotifications = async (req, res) => {
-  if (DEBUG) console.log(`📨 Fetching all notifications for Admin ID: ${req.admin.id}`);
+  if (DEBUG)
+    console.log(`📨 Fetching all notifications for Admin ID: ${req.admin.id}`);
   const category = req.query.category;
   try {
-
-    if (req.admin.role.toLowerCase() == 'admin') {
-      result = await notificationModel.getAllNotifications(req.admin.id, category);
+    if (req.admin.role.toLowerCase() == "admin") {
+      result = await notificationModel.getAllNotifications(
+        req.admin.id,
+        category
+      );
     } else {
-      result = await customNotificationModel.getAllCustomNotifications(req.admin.id, category);
+      result = await customNotificationModel.getAllCustomNotifications(
+        req.admin.id,
+        category
+      );
     }
 
     if (!result.status) {
       console.error(`❌ Fetch failed:`, result.message);
-      await logActivity(req, PANEL, MODULE, 'list', result, false);
+      await logActivity(req, PANEL, MODULE, "list", result, false);
       return res.status(500).json({ status: false, message: result.message });
     }
 
-    if (DEBUG) console.log(`📊 Total notifications:`, result.data.notifications?.length);
-    await logActivity(req, PANEL, MODULE, 'list', {
-      oneLineMessage: `Fetched ${result.data.notifications?.length || 0} notification(s) successfully.`,
-    }, true);
+    if (DEBUG)
+      console.log(`📊 Total notifications:`, result.data.notifications?.length);
+    await logActivity(
+      req,
+      PANEL,
+      MODULE,
+      "list",
+      {
+        oneLineMessage: `Fetched ${
+          result.data.notifications?.length || 0
+        } notification(s) successfully.`,
+      },
+      true
+    );
 
     return res.status(200).json({
       status: true,
@@ -147,7 +179,14 @@ exports.getAllNotifications = async (req, res) => {
     });
   } catch (error) {
     console.error(`❌ Error fetching all notifications:`, error);
-    await logActivity(req, PANEL, MODULE, 'list', { oneLineMessage: error.message }, false);
+    await logActivity(
+      req,
+      PANEL,
+      MODULE,
+      "list",
+      { oneLineMessage: error.message },
+      false
+    );
     return res.status(500).json({
       status: false,
       message: "Server error while fetching notifications.",
