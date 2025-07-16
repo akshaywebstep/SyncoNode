@@ -44,7 +44,7 @@ const models = {
   Term: require("./admin/termAndDates/Term"),
 
   //Venue
-  Venue: require("./admin/venue/Venue"),
+  Venue: require("./admin/venue/venue"),
   //Class Schedule
   ClassSchedule: require("./admin/classSchedule/ClassSchedule"),
 };
