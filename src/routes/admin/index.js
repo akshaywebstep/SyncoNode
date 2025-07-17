@@ -8,6 +8,7 @@ const {
   changeAdminStatus,
   deleteAdmin,
   getAdminProfile,
+  resetPassword,
 } = require("../../controllers/admin/adminController");
 
 const multer = require("multer");
@@ -34,6 +35,8 @@ router.get("/:id", authMiddleware, getAdminProfile);
 router.put("/:id", upload.single("profile"), authMiddleware, updateAdmin);
 router.patch("/:id/status", authMiddleware, changeAdminStatus);
 router.delete("/:id", authMiddleware, deleteAdmin);
+// ✅ Reset password
+router.post("/reset-password", authMiddleware, resetPassword);
 
 // Mount sub-routes here
 

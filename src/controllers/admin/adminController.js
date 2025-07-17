@@ -633,3 +633,98 @@ exports.deleteAdmin = async (req, res) => {
     });
   }
 };
+
+exports.resetPassword = async (req, res) => {
+  try {
+    const { newPassword, confirmPassword } = req.body;
+    const { email, token } = req.query; // ✅ Extract from query params
+
+    if (!email || !token) {
+      return res.status(400).json({
+        status: false,
+        message: "Reset link is invalid or missing required parameters.",
+      });
+    }
+
+    // ✅ Validate passwords
+    if (!newPassword || !confirmPassword) {
+      return res.status(400).json({
+        status: false,
+        message: "New password and confirm password are required.",
+      });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({
+        status: false,
+        message: "New password and confirm password do not match.",
+      });
+    }
+
+    // ✅ Find admin by email
+    const { status, data: admin } = await adminModel.findAdminByEmail(email);
+
+    if (!status || !admin) {
+      return res.status(404).json({
+        status: false,
+        message: "Admin account not found.",
+      });
+    }
+
+    // ✅ Validate token
+    if (!admin.resetOtp || admin.resetOtp !== token) {
+      return res.status(401).json({
+        status: false,
+        message: "Invalid or expired reset token.",
+      });
+    }
+
+    // ✅ Check expiry (24 hours)
+    if (new Date(admin.resetOtpExpiry) < new Date()) {
+      return res.status(401).json({
+        status: false,
+        message: "Reset token has expired. Please request a new reset link.",
+      });
+    }
+
+    // ✅ Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const passwordHint = generatePasswordHint(newPassword);
+
+    // ✅ Update password & clear token
+    const updateResult = await adminModel.updateAdmin(admin.id, {
+      password: hashedPassword,
+      passwordHint,
+      resetOtp: null,
+      resetOtpExpiry: null,
+    });
+
+    if (!updateResult.status) {
+      return res.status(500).json({
+        status: false,
+        message: updateResult.message || "Failed to reset password.",
+      });
+    }
+
+    // ✅ Log activity
+    await logActivity(
+      req,
+      PANEL,
+      MODULE,
+      "resetPassword",
+      { oneLineMessage: `Password reset successfully for ${email}` },
+      true
+    );
+
+    return res.status(200).json({
+      status: true,
+      message: "Password reset successfully. You can now log in.",
+    });
+  } catch (error) {
+    console.error("❌ Reset Password Error:", error);
+    return res.status(500).json({
+      status: false,
+      message: "Server error while resetting password. Try again later.",
+    });
+  }
+};
