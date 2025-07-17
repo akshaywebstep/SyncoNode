@@ -37,11 +37,11 @@ exports.markAsRead = async (adminId) => {
       attributes: ["notificationId"],
     });
 
-    const readIds = readNotifications.map(r => r.notificationId);
+    const readIds = readNotifications.map((r) => r.notificationId);
 
-    const unread = allNotifications.filter(n => !readIds.includes(n.id));
+    const unread = allNotifications.filter((n) => !readIds.includes(n.id));
 
-    const newReadEntries = unread.map(n => ({
+    const newReadEntries = unread.map((n) => ({
       adminId,
       notificationId: n.id,
     }));
@@ -70,6 +70,47 @@ exports.markAsRead = async (adminId) => {
 };
 
 // ✅ Get all notifications with read status
+// exports.getAllNotifications = async (adminId, category = null) => {
+//   try {
+//     const whereCondition = {};
+//     if (category) {
+//       whereCondition.category = category;
+//     }
+
+//     const notifications = await Notification.findAll({
+//       where: whereCondition,
+//       order: [["createdAt", "DESC"]],
+//     });
+
+//     const readRecords = await NotificationRead.findAll({
+//       where: { adminId },
+//       attributes: ["notificationId"],
+//     });
+
+//     const readIdsSet = new Set(readRecords.map(r => r.notificationId));
+
+//     const notificationList = notifications.map(notification => ({
+//       id: notification.id,
+//       title: notification.title,
+//       description: notification.description,
+//       category: notification.category,
+//       createdAt: notification.createdAt,
+//       isRead: readIdsSet.has(notification.id),
+//     }));
+
+//     return {
+//       status: true,
+//       data: notificationList,
+//       message: `${notificationList.length} notification(s) retrieved successfully.`,
+//     };
+//   } catch (error) {
+//     return {
+//       status: false,
+//       message: `Failed to retrieve notifications. ${error.message}`,
+//     };
+//   }
+// };
+
 exports.getAllNotifications = async (adminId, category = null) => {
   try {
     const whereCondition = {};
@@ -77,26 +118,33 @@ exports.getAllNotifications = async (adminId, category = null) => {
       whereCondition.category = category;
     }
 
+    // ✅ Fetch all notifications
     const notifications = await Notification.findAll({
       where: whereCondition,
       order: [["createdAt", "DESC"]],
     });
 
+    // ✅ Fetch all read records for this admin
     const readRecords = await NotificationRead.findAll({
       where: { adminId },
       attributes: ["notificationId"],
     });
 
-    const readIdsSet = new Set(readRecords.map(r => r.notificationId));
+    // ✅ Convert read notifications into a Set for fast lookup
+    const readIdsSet = new Set(readRecords.map((r) => r.notificationId));
 
-    const notificationList = notifications.map(notification => ({
-      id: notification.id,
-      title: notification.title,
-      description: notification.description,
-      category: notification.category,
-      createdAt: notification.createdAt,
-      isRead: readIdsSet.has(notification.id),
-    }));
+    // ✅ Map all notifications with explicit boolean for isRead
+    const notificationList = notifications.map((notification) => {
+      const isRead = readIdsSet.has(notification.id) ? true : false;
+      return {
+        id: notification.id,
+        title: notification.title,
+        description: notification.description,
+        category: notification.category,
+        createdAt: notification.createdAt,
+        isRead, // ✅ Always true/false
+      };
+    });
 
     return {
       status: true,
