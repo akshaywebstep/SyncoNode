@@ -135,7 +135,8 @@ exports.createCustomNotification = async (req, res) => {
 
 // ✅ Get all custom notifications
 // exports.getAllCustomNotifications = async (req, res) => {
-//   if (DEBUG) console.log("📬 Request received to fetch all custom notifications");
+//   if (DEBUG)
+//     console.log("📬 Request received to fetch all custom notifications");
 
 //   try {
 //     const result = await customNotificationModel.getAllCustomNotifications();
@@ -144,34 +145,61 @@ exports.createCustomNotification = async (req, res) => {
 //       const message = result.message || "Failed to fetch custom notifications.";
 //       console.error("❌ Fetch failed:", message);
 
-//       await logActivity(req, PANEL, MODULE, 'list', { oneLineMessage: message }, false);
+//       await logActivity(
+//         req,
+//         PANEL,
+//         MODULE,
+//         "list",
+//         { oneLineMessage: message },
+//         false
+//       );
 //       return res.status(500).json({ status: false, message });
 //     }
 
 //     const count = result.data.length;
-//     const message = `Fetched ${count} custom notification${count === 1 ? '' : 's'} successfully.`;
+//     const message = `Fetched ${count} custom notification${
+//       count === 1 ? "" : "s"
+//     } successfully.`;
 
 //     if (DEBUG) {
 //       console.log("✅", message);
-//       console.table(result.data.map(n => ({
-//         ID: n.id,
-//         Title: n.title,
-//         Category: n.category,
-//         CreatedAt: n.createdAt,
-//       })));
+//       console.table(
+//         result.data.map((n) => ({
+//           ID: n.id,
+//           Title: n.title,
+//           Category: n.category,
+//           CreatedAt: n.createdAt,
+//         }))
+//       );
 //     }
 
-//     await logActivity(req, PANEL, MODULE, 'list', { oneLineMessage: message }, true);
+//     await logActivity(
+//       req,
+//       PANEL,
+//       MODULE,
+//       "list",
+//       { oneLineMessage: message },
+//       true
+//     );
 
 //     return res.status(200).json({
 //       status: true,
 //       message,
 //       data: result.data,
 //     });
-
 //   } catch (error) {
-//     console.error("❌ Exception while fetching custom notifications:", error.message);
-//     await logActivity(req, PANEL, MODULE, 'list', { oneLineMessage: error.message }, false);
+//     console.error(
+//       "❌ Exception while fetching custom notifications:",
+//       error.message
+//     );
+//     await logActivity(
+//       req,
+//       PANEL,
+//       MODULE,
+//       "list",
+//       { oneLineMessage: error.message },
+//       false
+//     );
 
 //     return res.status(500).json({
 //       status: false,

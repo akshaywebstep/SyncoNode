@@ -71,67 +71,67 @@ exports.createCustomNotificationReads = async ({
 };
 
 // ✅ Get all custom notifications
-exports.getAllCustomNotificationsRaw = async (
-  adminId = null,
-  category = null
-) => {
-  try {
-    // Step 1: Fetch all notification read entries for the admin
-    const notificationReads = await CustomNotificationRead.findAll({
-      where: { adminId },
-      order: [["createdAt", "DESC"]],
-    });
+// exports.getAllCustomNotificationsRaw = async (
+//   adminId = null,
+//   category = null
+// ) => {
+//   try {
+//     // Step 1: Fetch all notification read entries for the admin
+//     const notificationReads = await CustomNotificationRead.findAll({
+//       where: { adminId },
+//       order: [["createdAt", "DESC"]],
+//     });
 
-    // Step 2: Extract all custom notification IDs from the reads
-    const customNotificationIds = notificationReads.map(
-      (read) => read.customNotificationId
-    );
+//     // Step 2: Extract all custom notification IDs from the reads
+//     const customNotificationIds = notificationReads.map(
+//       (read) => read.customNotificationId
+//     );
 
-    // Step 3: Fetch notifications matching the IDs and optional category
-    const whereCondition = {
-      id: customNotificationIds,
-    };
-    if (category) {
-      whereCondition.category = category;
-    }
+//     // Step 3: Fetch notifications matching the IDs and optional category
+//     const whereCondition = {
+//       id: customNotificationIds,
+//     };
+//     if (category) {
+//       whereCondition.category = category;
+//     }
 
-    const notifications = await CustomNotification.findAll({
-      where: whereCondition,
-      order: [["createdAt", "DESC"]],
-      include: [
-        {
-          model: CustomNotificationRead,
-          as: "reads",
-          attributes: ["id", "adminId", "status", "createdAt"],
-          include: [
-            {
-              model: Admin,
-              as: "admin",
-              attributes: ["id", "firstName", "lastName", "email", "profile"],
-            },
-          ],
-        },
-        {
-          model: Admin,
-          as: "admin",
-          attributes: ["id", "firstName", "lastName", "email", "profile"],
-        },
-      ],
-    });
+//     const notifications = await CustomNotification.findAll({
+//       where: whereCondition,
+//       order: [["createdAt", "DESC"]],
+//       include: [
+//         {
+//           model: CustomNotificationRead,
+//           as: "reads",
+//           attributes: ["id", "adminId", "status", "createdAt"],
+//           include: [
+//             {
+//               model: Admin,
+//               as: "admin",
+//               attributes: ["id", "firstName", "lastName", "email", "profile"],
+//             },
+//           ],
+//         },
+//         {
+//           model: Admin,
+//           as: "admin",
+//           attributes: ["id", "firstName", "lastName", "email", "profile"],
+//         },
+//       ],
+//     });
 
-    return {
-      status: true,
-      message: `${notifications.length} notification(s) retrieved successfully.`,
-      data: notifications,
-    };
-  } catch (error) {
-    console.error("❌ Sequelize Error in getAllCustomNotifications:", error);
-    return {
-      status: false,
-      message: `Failed to retrieve custom notifications. ${error.message}`,
-    };
-  }
-};
+//     return {
+//       status: true,
+//       message: `${notifications.length} notification(s) retrieved successfully.`,
+//       data: notifications,
+//     };
+//   } catch (error) {
+//     console.error("❌ Sequelize Error in getAllCustomNotifications:", error);
+//     return {
+//       status: false,
+//       message: `Failed to retrieve custom notifications. ${error.message}`,
+//     };
+//   }
+// };
 
 // ✅ Get all custom notifications
 exports.getAllCustomNotifications = async (adminId, category = null) => {

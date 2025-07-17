@@ -54,6 +54,57 @@ exports.register = async (req, res) => {
   }
 };
 
+// // ✅ Login admin
+// exports.login = async (req, res) => {
+//   const { email, password } = req.body;
+
+//   if (!email || !password) {
+//     return res
+//       .status(400)
+//       .json({ message: "Both email and password are required." });
+//   }
+
+//   try {
+//     const { status, data: admin } = await adminModel.findAdminByEmail(email);
+
+//     if (
+//       !status ||
+//       !admin ||
+//       !(await bcrypt.compare(password, admin.password))
+//     ) {
+//       return res
+//         .status(401)
+//         .json({ message: "Invalid email or password. Please try again." });
+//     }
+
+//     if (DEBUG) console.log(`admin - `, admin);
+//     const token = createToken({
+//       id: admin.id,
+//       name: admin.name,
+//       email: admin.email,
+//       role: admin.role.role,
+//     });
+
+//     return res.status(200).json({
+//       message: "Login successful.",
+//       data: {
+//         admin: {
+//           id: admin.id,
+//           name: admin.name,
+//           email: admin.email,
+//           role: admin.role.role,
+//         },
+//         token,
+//       },
+//     });
+//   } catch (error) {
+//     console.error("❌ Login Error:", error);
+//     return res.status(500).json({
+//       message: "Internal server error during login. Please try again later.",
+//     });
+//   }
+// };
+
 // ✅ Login admin
 exports.login = async (req, res) => {
   const { email, password } = req.body;
@@ -67,17 +118,32 @@ exports.login = async (req, res) => {
   try {
     const { status, data: admin } = await adminModel.findAdminByEmail(email);
 
-    if (
-      !status ||
-      !admin ||
-      !(await bcrypt.compare(password, admin.password))
-    ) {
-      return res
-        .status(401)
-        .json({ message: "Invalid email or password. Please try again." });
+    // ❌ Admin not found
+    if (!status || !admin) {
+      return res.status(401).json({
+        message: "Invalid email or password. Please try again.",
+      });
     }
 
-    if (DEBUG) console.log(`admin - `, admin);
+    // ✅ Block login if status === "suspended"
+    if (admin.status && admin.status.toLowerCase() === "suspend") {
+      return res.status(403).json({
+        message:
+          "Your account is suspended and cannot be accessed. Please contact support.",
+      });
+    }
+
+    // ❌ Password mismatch
+    const isMatch = await bcrypt.compare(password, admin.password);
+    if (!isMatch) {
+      return res.status(401).json({
+        message: "Invalid email or password. Please try again.",
+      });
+    }
+
+    if (DEBUG) console.log(`✅ Admin logged in:`, admin.email);
+
+    // ✅ Create JWT token
     const token = createToken({
       id: admin.id,
       name: admin.name,
