@@ -19,25 +19,27 @@ const DEBUG = process.env.DEBUG === "true";
 const PANEL = "admin";
 const MODULE = "admin";
 
+const ADMIN_RESET_URL =
+  process.env.ADMIN_RESET_URL ||
+  "https://webstepdev.com/demo/synco/reset-password";
+
 exports.createAdmin = async (req, res) => {
   try {
     const formData = req.body;
     const file = req.file;
 
     if (DEBUG) console.log("📥 Received FormData:", formData);
-    if (DEBUG && file) console.log("📎 Received File:", file.originalname);
 
     const email = formData.email;
-    const password = formData.password;
     const name = formData.name;
     const position = formData.position || null;
     const phoneNumber = formData.phoneNumber || null;
     const roleId = formData.role || null;
 
-    if (DEBUG) console.log("🔍 Checking if email already exists:", email);
-
+    // ✅ Check if email already exists
     const { status: exists, data: existingAdmin } =
       await adminModel.findAdminByEmail(email);
+
     if (exists && existingAdmin) {
       if (DEBUG) console.log("❌ Email already registered:", email);
 
@@ -46,34 +48,25 @@ exports.createAdmin = async (req, res) => {
         PANEL,
         MODULE,
         "create",
-        {
-          oneLineMessage:
-            "This email is already registered. Please use another email.",
-        },
+        { oneLineMessage: "Email already exists" },
         false
       );
+
       return res.status(409).json({
         status: false,
         message: "This email is already registered. Please use another email.",
       });
     }
 
-    if (DEBUG) console.log("✅ Email is available");
-
+    // ✅ Validate required fields
     const validation = validateFormData(formData, {
-      requiredFields: ["name", "email", "password", "role"],
-      patternValidations: {
-        email: "email",
-        status: "boolean",
-      },
-      fileExtensionValidations: {
-        profile: ["jpg", "jpeg", "png", "webp"],
-      },
+      requiredFields: ["name", "email", "role"],
+      patternValidations: { email: "email" },
+      fileExtensionValidations: { profile: ["jpg", "jpeg", "png", "webp"] },
     });
 
     if (!validation.isValid) {
       await logActivity(req, PANEL, MODULE, "create", validation.error, false);
-      if (DEBUG) console.log("❌ Form validation failed:", validation.error);
       return res.status(400).json({
         status: false,
         error: validation.error,
@@ -86,26 +79,29 @@ exports.createAdmin = async (req, res) => {
     const statusRaw = (formData.status || "").toString().toLowerCase();
     const status = ["true", "1", "yes", "active"].includes(statusRaw);
 
-    if (DEBUG) console.log("🔐 Hashing password...");
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // ✅ Initially save a dummy password (force reset on first login)
+    const dummyPassword = await bcrypt.hash("TEMP_PASSWORD", 10);
 
-    if (DEBUG) console.log("📦 Creating admin...");
+    // ✅ Generate a RESET OTP token & expiry (valid for 24 hours)
+    const resetOtp = Math.random().toString(36).substring(2, 12); // random 10-char token
+    const resetOtpExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
+    // ✅ Create admin in DB
     const createResult = await adminModel.createAdmin({
       firstName: name,
       email,
-      password: hashedPassword,
+      password: dummyPassword,
       passwordHint: generatePasswordHint(password),
       position,
       phoneNumber,
       roleId,
+      resetOtp,
+      resetOtpExpiry,
       status,
     });
 
     if (!createResult.status) {
       await logActivity(req, PANEL, MODULE, "create", createResult, false);
-
-      if (DEBUG) console.log("❌ Admin creation failed:", createResult.message);
       return res.status(500).json({
         status: false,
         message: createResult.message || "Failed to create admin.",
@@ -113,13 +109,12 @@ exports.createAdmin = async (req, res) => {
     }
 
     const admin = createResult.data;
-    let savedProfilePath = "";
 
+    // ✅ Save profile image if uploaded
     if (file) {
       const uniqueId = Math.floor(Math.random() * 1e9);
       const ext = path.extname(file.originalname).toLowerCase();
       const fileName = `${Date.now()}_${uniqueId}${ext}`;
-
       const fullPath = path.join(
         process.cwd(),
         "uploads",
@@ -128,31 +123,115 @@ exports.createAdmin = async (req, res) => {
         "profile",
         fileName
       );
-      savedProfilePath = `uploads/admin/${admin.id}/profile/${fileName}`;
+      const savedProfilePath = `uploads/admin/${admin.id}/profile/${fileName}`;
 
       if (DEBUG) console.log("📁 Saving file to:", fullPath);
 
       try {
         await saveFile(file, fullPath);
         await adminModel.updateAdmin(admin.id, { profile: savedProfilePath });
-
-        if (DEBUG) console.log("✅ Profile image saved and updated in DB");
+        if (DEBUG) console.log("✅ Profile image saved");
       } catch (fileErr) {
         console.error("❌ Failed to save profile image:", fileErr);
       }
-    } else {
-      if (DEBUG) console.log("ℹ️ No file uploaded, skipping file save.");
     }
 
-    const successMessage = `New admin '${name}' created successfully by Admin: ${req.admin.name}`;
-    if (DEBUG) console.log("✅", successMessage);
-
+    // ✅ Log activity & notification
+    const successMessage = `New admin '${name}' created successfully by Admin: ${
+      req.admin?.name || "System"
+    }`;
     await logActivity(req, PANEL, MODULE, "create", createResult, true);
     await createNotification(req, "New Admin Added", successMessage, "Admins");
 
+    // ✅ Now fetch email config for "create admin"
+    const emailConfigResult = await emailModel.getEmailConfig(
+      "admin",
+      "create admin"
+    );
+
+    const {
+      emailConfig,
+      htmlTemplate,
+      subject,
+      message: configMessage,
+    } = emailConfigResult;
+
+    if (!emailConfigResult.status || !emailConfig) {
+      console.warn("⚠️ No email config found for create admin");
+    } else {
+      // ✅ Generate Reset Link
+      const resetLink = `${ADMIN_RESET_URL}?email=${encodeURIComponent(
+        email
+      )}&token=${resetOtp}`;
+
+      // ✅ Prepare placeholder replacements
+      const replacements = {
+        "{{name}}": name,
+        "{{email}}": email,
+        "{{resetLink}}": resetLink,
+        "{{year}}": new Date().getFullYear().toString(),
+        "{{appName}}": "Synco",
+      };
+
+      const replacePlaceholders = (text) => {
+        if (typeof text !== "string") return text;
+        return Object.entries(replacements).reduce(
+          (result, [key, val]) => result.replace(new RegExp(key, "g"), val),
+          text
+        );
+      };
+
+      const emailSubject = replacePlaceholders(
+        subject || "Set your Admin Panel password"
+      );
+
+      let htmlBody = replacePlaceholders(
+        htmlTemplate?.trim() ||
+          `<p>Hello {{name}},</p>
+           <p>Your admin account for <strong>{{appName}}</strong> has been created successfully.</p>
+           <p>Please reset your password using the secure link below:</p>
+           <p><a href="{{resetLink}}" target="_blank">{{resetLink}}</a></p>
+           <p>This link will expire in <strong>24 hours</strong>.</p>
+           <p>Regards,<br>{{appName}} Team<br>&copy; {{year}}</p>`
+      );
+
+      const mapRecipients = (list) =>
+        Array.isArray(list)
+          ? list.map(({ name, email }) => ({
+              name: replacePlaceholders(name),
+              email: replacePlaceholders(email),
+            }))
+          : [];
+
+      const mailData = {
+        recipient: [{ name, email }], // send directly to created admin
+        cc: mapRecipients(emailConfig.cc),
+        bcc: mapRecipients(emailConfig.bcc),
+        subject: emailSubject,
+        htmlBody,
+        attachments: [],
+      };
+
+      // ✅ Send Email
+      const emailResult = await sendEmail(emailConfig, mailData);
+
+      if (!emailResult.status) {
+        console.error(
+          "❌ Failed to send admin reset link email:",
+          emailResult.error
+        );
+      } else {
+        if (DEBUG)
+          console.log(
+            "✅ Reset link email sent successfully:",
+            emailResult.messageId
+          );
+      }
+    }
+
     return res.status(201).json({
       status: true,
-      message: "Admin created successfully.",
+      message: "Admin created successfully & reset password email sent.",
       data: {
         firstName: admin.firstName,
         email: admin.email,

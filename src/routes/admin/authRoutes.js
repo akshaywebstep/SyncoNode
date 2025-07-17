@@ -9,6 +9,7 @@ const {
   profile,
   forgetPassword,
   verifyOtpAndResetPassword,
+  logout,
 } = require("../../controllers/admin/authController");
 
 router.post("/register", register); //register route

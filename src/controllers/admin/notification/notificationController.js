@@ -139,6 +139,7 @@ exports.getAllNotifications = async (req, res) => {
     console.log(`📨 Fetching all notifications for Admin ID: ${req.admin.id}`);
   const category = req.query.category;
   try {
+    console.log(`req.admin.role - `, req.admin.role);
     if (req.admin.role.toLowerCase() == "admin") {
       result = await notificationModel.getAllNotifications(
         req.admin.id,
@@ -157,8 +158,6 @@ exports.getAllNotifications = async (req, res) => {
       return res.status(500).json({ status: false, message: result.message });
     }
 
-    if (DEBUG)
-      console.log(`📊 Total notifications:`, result.data.notifications?.length);
     await logActivity(
       req,
       PANEL,
