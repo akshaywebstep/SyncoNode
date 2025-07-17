@@ -35,6 +35,7 @@ exports.createAdmin = async (req, res) => {
     const position = formData.position || null;
     const phoneNumber = formData.phoneNumber || null;
     const roleId = formData.role || null;
+    const plainPassword = formData.password || null; // ✅ Now optional
 
     // ✅ Check if email already exists
     const { status: exists, data: existingAdmin } =
@@ -79,19 +80,25 @@ exports.createAdmin = async (req, res) => {
     const statusRaw = (formData.status || "").toString().toLowerCase();
     const status = ["true", "1", "yes", "active"].includes(statusRaw);
 
-    // ✅ Initially save a dummy password (force reset on first login)
-    const dummyPassword = await bcrypt.hash("TEMP_PASSWORD", 10);
+    // ✅ Hash password only if provided
+    let hashedPassword = null;
+    let passwordHint = null;
 
-    // ✅ Generate a RESET OTP token & expiry (valid for 24 hours)
-    const resetOtp = Math.random().toString(36).substring(2, 12); // random 10-char token
-    const resetOtpExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    if (plainPassword) {
+      hashedPassword = await bcrypt.hash(plainPassword, 10);
+      passwordHint = generatePasswordHint(plainPassword);
+    }
+
+    // ✅ Generate RESET OTP token (valid 24 hours)
+    const resetOtp = Math.random().toString(36).substring(2, 12);
+    const resetOtpExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
     // ✅ Create admin in DB
     const createResult = await adminModel.createAdmin({
       firstName: name,
       email,
-      password: dummyPassword,
-      passwordHint: generatePasswordHint(password),
+      password: hashedPassword, // ✅ Will be null if not provided
+      passwordHint, // ✅ Optional
       position,
       phoneNumber,
       roleId,
@@ -143,28 +150,21 @@ exports.createAdmin = async (req, res) => {
     await logActivity(req, PANEL, MODULE, "create", createResult, true);
     await createNotification(req, "New Admin Added", successMessage, "Admins");
 
-    // ✅ Now fetch email config for "create admin"
+    // ✅ Email notification (reset link)
     const emailConfigResult = await emailModel.getEmailConfig(
       "admin",
       "create admin"
     );
 
-    const {
-      emailConfig,
-      htmlTemplate,
-      subject,
-      message: configMessage,
-    } = emailConfigResult;
+    const { emailConfig, htmlTemplate, subject } = emailConfigResult;
 
     if (!emailConfigResult.status || !emailConfig) {
       console.warn("⚠️ No email config found for create admin");
     } else {
-      // ✅ Generate Reset Link
       const resetLink = `${ADMIN_RESET_URL}?email=${encodeURIComponent(
         email
       )}&token=${resetOtp}`;
 
-      // ✅ Prepare placeholder replacements
       const replacements = {
         "{{name}}": name,
         "{{email}}": email,
@@ -173,23 +173,23 @@ exports.createAdmin = async (req, res) => {
         "{{appName}}": "Synco",
       };
 
-      const replacePlaceholders = (text) => {
-        if (typeof text !== "string") return text;
-        return Object.entries(replacements).reduce(
-          (result, [key, val]) => result.replace(new RegExp(key, "g"), val),
-          text
-        );
-      };
+      const replacePlaceholders = (text) =>
+        typeof text === "string"
+          ? Object.entries(replacements).reduce(
+              (result, [key, val]) => result.replace(new RegExp(key, "g"), val),
+              text
+            )
+          : text;
 
       const emailSubject = replacePlaceholders(
         subject || "Set your Admin Panel password"
       );
 
-      let htmlBody = replacePlaceholders(
+      const htmlBody = replacePlaceholders(
         htmlTemplate?.trim() ||
           `<p>Hello {{name}},</p>
            <p>Your admin account for <strong>{{appName}}</strong> has been created successfully.</p>
-           <p>Please reset your password using the secure link below:</p>
+           <p>If you’d like to reset your password, use the secure link below:</p>
            <p><a href="{{resetLink}}" target="_blank">{{resetLink}}</a></p>
            <p>This link will expire in <strong>24 hours</strong>.</p>
            <p>Regards,<br>{{appName}} Team<br>&copy; {{year}}</p>`
@@ -204,7 +204,7 @@ exports.createAdmin = async (req, res) => {
           : [];
 
       const mailData = {
-        recipient: [{ name, email }], // send directly to created admin
+        recipient: [{ name, email }],
         cc: mapRecipients(emailConfig.cc),
         bcc: mapRecipients(emailConfig.bcc),
         subject: emailSubject,
@@ -212,7 +212,6 @@ exports.createAdmin = async (req, res) => {
         attachments: [],
       };
 
-      // ✅ Send Email
       const emailResult = await sendEmail(emailConfig, mailData);
 
       if (!emailResult.status) {
@@ -220,18 +219,14 @@ exports.createAdmin = async (req, res) => {
           "❌ Failed to send admin reset link email:",
           emailResult.error
         );
-      } else {
-        if (DEBUG)
-          console.log(
-            "✅ Reset link email sent successfully:",
-            emailResult.messageId
-          );
+      } else if (DEBUG) {
+        console.log("✅ Reset link email sent:", emailResult.messageId);
       }
     }
 
     return res.status(201).json({
       status: true,
-      message: "Admin created successfully & reset password email sent.",
+      message: "Admin created successfully. Password saved. Reset link sent.",
       data: {
         firstName: admin.firstName,
         email: admin.email,
