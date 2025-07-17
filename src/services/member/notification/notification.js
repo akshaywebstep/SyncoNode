@@ -1,4 +1,8 @@
-const { CustomNotification, CustomNotificationRead, Admin } = require("../../../models");
+const {
+  CustomNotification,
+  CustomNotificationRead,
+  Admin,
+} = require("../../../models");
 const { Op } = require("sequelize");
 
 // ✅ Get custom notifications for a member, with read status
@@ -51,10 +55,10 @@ exports.getAllNotifications = async (memberId) => {
       isRead: readStatusMap.get(notification.id) || false,
       admin: notification.admin
         ? {
-          id: notification.admin.id,
-          name: notification.admin.name,
-          email: notification.admin.email,
-        }
+            id: notification.admin.id,
+            name: notification.admin.name,
+            email: notification.admin.email,
+          }
         : null,
     }));
 
