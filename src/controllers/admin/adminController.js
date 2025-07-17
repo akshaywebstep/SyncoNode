@@ -35,7 +35,7 @@ exports.createAdmin = async (req, res) => {
     const position = formData.position || null;
     const phoneNumber = formData.phoneNumber || null;
     const roleId = formData.role || null;
-    const plainPassword = formData.password || null; // ✅ Now optional
+    const plainPassword = formData.password || null; // ✅ Optional
 
     // ✅ Check if email already exists
     const { status: exists, data: existingAdmin } =
@@ -97,8 +97,8 @@ exports.createAdmin = async (req, res) => {
     const createResult = await adminModel.createAdmin({
       firstName: name,
       email,
-      password: hashedPassword, // ✅ Will be null if not provided
-      passwordHint, // ✅ Optional
+      password: hashedPassword,
+      passwordHint,
       position,
       phoneNumber,
       roleId,
@@ -148,9 +148,10 @@ exports.createAdmin = async (req, res) => {
       req.admin?.name || "System"
     }`;
     await logActivity(req, PANEL, MODULE, "create", createResult, true);
-    await createNotification(req, "New Admin Added", successMessage, "Admins");
 
     // ✅ Email notification (reset link)
+    let emailSentFlag = 0; // Default → not sent
+
     const emailConfigResult = await emailModel.getEmailConfig(
       "admin",
       "create admin"
@@ -219,11 +220,15 @@ exports.createAdmin = async (req, res) => {
           "❌ Failed to send admin reset link email:",
           emailResult.error
         );
-      } else if (DEBUG) {
-        console.log("✅ Reset link email sent:", emailResult.messageId);
+        emailSentFlag = 0;
+      } else {
+        if (DEBUG)
+          console.log("✅ Reset link email sent:", emailResult.messageId);
+        emailSentFlag = 1; // ✅ Successfully sent
       }
     }
 
+    // ✅ Final response with emailSent flag
     return res.status(201).json({
       status: true,
       message: "Admin created successfully",
@@ -231,6 +236,7 @@ exports.createAdmin = async (req, res) => {
         firstName: admin.firstName,
         email: admin.email,
         profile: admin.profile,
+        emailSent: emailSentFlag, // ✅ 1 if sent, 0 if failed
       },
     });
   } catch (error) {
@@ -637,8 +643,9 @@ exports.deleteAdmin = async (req, res) => {
 exports.resetPassword = async (req, res) => {
   try {
     const { newPassword, confirmPassword } = req.body;
-    const { email, token } = req.query; // ✅ Extract from query params
+    const { email, token } = req.query;
 
+    // 🧪 Validate query parameters
     if (!email || !token) {
       return res.status(400).json({
         status: false,
@@ -646,7 +653,7 @@ exports.resetPassword = async (req, res) => {
       });
     }
 
-    // ✅ Validate passwords
+    // 🧪 Validate password fields
     if (!newPassword || !confirmPassword) {
       return res.status(400).json({
         status: false,
@@ -661,7 +668,7 @@ exports.resetPassword = async (req, res) => {
       });
     }
 
-    // ✅ Find admin by email
+    // 🔍 Find admin
     const { status, data: admin } = await adminModel.findAdminByEmail(email);
 
     if (!status || !admin) {
@@ -671,27 +678,39 @@ exports.resetPassword = async (req, res) => {
       });
     }
 
-    // ✅ Validate token
-    if (!admin.resetOtp || admin.resetOtp !== token) {
+    // 🧾 Debug: Log everything
+    console.log("🔍 Incoming email:", email);
+    console.log("🔍 Incoming token:", `"${token}"`);
+    console.log("🔍 DB resetOtp:", `"${admin.resetOtp}"`);
+    console.log("🔍 DB resetOtpExpiry:", admin.resetOtpExpiry);
+    console.log("🕒 Current time:", new Date().toISOString());
+
+    // ✅ Clean token before comparing (prevent hidden spaces)
+    const incomingToken = token.trim();
+    const storedToken = admin.resetOtp?.trim();
+
+    // 🚫 Token mismatch
+    if (!storedToken || storedToken !== incomingToken) {
       return res.status(401).json({
         status: false,
-        message: "Invalid or expired reset token.",
+        message: "Invalid reset token.",
       });
     }
 
-    // ✅ Check expiry (24 hours)
-    if (new Date(admin.resetOtpExpiry) < new Date()) {
+    // 🚫 Token expired
+    const isExpired = new Date(admin.resetOtpExpiry) < new Date();
+    if (isExpired) {
       return res.status(401).json({
         status: false,
         message: "Reset token has expired. Please request a new reset link.",
       });
     }
 
-    // ✅ Hash new password
+    // 🔒 Hash the new password
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     const passwordHint = generatePasswordHint(newPassword);
 
-    // ✅ Update password & clear token
+    // 📦 Update admin
     const updateResult = await adminModel.updateAdmin(admin.id, {
       password: hashedPassword,
       passwordHint,
@@ -705,16 +724,6 @@ exports.resetPassword = async (req, res) => {
         message: updateResult.message || "Failed to reset password.",
       });
     }
-
-    // ✅ Log activity
-    await logActivity(
-      req,
-      PANEL,
-      MODULE,
-      "resetPassword",
-      { oneLineMessage: `Password reset successfully for ${email}` },
-      true
-    );
 
     return res.status(200).json({
       status: true,

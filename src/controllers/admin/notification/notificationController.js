@@ -135,28 +135,63 @@ exports.markNotificationAsRead = async (req, res) => {
 
 // ✅ Get all notifications
 exports.getAllNotifications = async (req, res) => {
-  if (DEBUG)
-    console.log(`📨 Fetching all notifications for Admin ID: ${req.admin.id}`);
-  const category = req.query.category;
+  const adminId = req.admin?.id;
+  const category = req.query?.category || null;
+
+  if (DEBUG) {
+    console.log(`📨 Fetching notifications for Admin ID: ${adminId}`);
+    console.log(`📂 Category filter: ${category}`);
+    console.log(`🔐 Admin Role: ${req.admin?.role}`);
+  }
+
   try {
-    console.log(`req.admin.role - `, req.admin.role);
-    if (req.admin.role.toLowerCase() == "admin") {
-      result = await notificationModel.getAllNotifications(
-        req.admin.id,
+    // Fetch regular notifications
+    const notificationResult = await notificationModel.getAllNotifications(
+      adminId,
+      category
+    );
+
+    // Fetch custom notifications
+    const customNotificationResult =
+      await customNotificationModel.getAllCustomNotifications(
+        adminId,
         category
       );
-    } else {
-      result = await customNotificationModel.getAllCustomNotifications(
-        req.admin.id,
-        category
+
+    // Combine results
+    const combinedData = {
+      notifications: notificationResult?.data || [],
+      customNotifications: customNotificationResult?.data || [],
+    };
+
+    // Validate status
+    if (!notificationResult.status || !customNotificationResult.status) {
+      const errorMsg =
+        notificationResult.message ||
+        customNotificationResult.message ||
+        "Failed to fetch notifications.";
+
+      console.error("❌ Notification fetch failed:", errorMsg);
+
+      await logActivity(
+        req,
+        PANEL,
+        MODULE,
+        "list",
+        { oneLineMessage: errorMsg },
+        false
       );
+
+      return res.status(500).json({
+        status: false,
+        message: errorMsg,
+      });
     }
 
-    if (!result.status) {
-      console.error(`❌ Fetch failed:`, result.message);
-      await logActivity(req, PANEL, MODULE, "list", result, false);
-      return res.status(500).json({ status: false, message: result.message });
-    }
+    // Log success
+    const totalCount =
+      (combinedData.notifications?.length || 0) +
+      (combinedData.customNotifications?.length || 0);
 
     await logActivity(
       req,
@@ -164,20 +199,19 @@ exports.getAllNotifications = async (req, res) => {
       MODULE,
       "list",
       {
-        oneLineMessage: `Fetched ${
-          result.data.notifications?.length || 0
-        } notification(s) successfully.`,
+        oneLineMessage: `Successfully fetched ${totalCount} notification(s).`,
       },
       true
     );
 
     return res.status(200).json({
       status: true,
-      message: result.message,
-      data: result.data,
+      message: "Notifications fetched successfully.",
+      data: combinedData,
     });
   } catch (error) {
-    console.error(`❌ Error fetching all notifications:`, error);
+    console.error("❌ Error fetching notifications:", error.message);
+
     await logActivity(
       req,
       PANEL,
@@ -186,6 +220,7 @@ exports.getAllNotifications = async (req, res) => {
       { oneLineMessage: error.message },
       false
     );
+
     return res.status(500).json({
       status: false,
       message: "Server error while fetching notifications.",

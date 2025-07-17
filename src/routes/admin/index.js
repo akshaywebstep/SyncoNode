@@ -36,7 +36,7 @@ router.put("/:id", upload.single("profile"), authMiddleware, updateAdmin);
 router.patch("/:id/status", authMiddleware, changeAdminStatus);
 router.delete("/:id", authMiddleware, deleteAdmin);
 // ✅ Reset password
-router.post("/reset-password", authMiddleware, resetPassword);
+router.post("/reset-password", resetPassword);
 
 // Mount sub-routes here
 
