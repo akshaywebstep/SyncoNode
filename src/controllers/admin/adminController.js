@@ -226,7 +226,7 @@ exports.createAdmin = async (req, res) => {
 
     return res.status(201).json({
       status: true,
-      message: "Admin created successfully. Password saved. Reset link sent.",
+      message: "Admin created successfully",
       data: {
         firstName: admin.firstName,
         email: admin.email,
