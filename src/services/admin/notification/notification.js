@@ -87,9 +87,9 @@ exports.markAsRead = async (adminId) => {
 //       attributes: ["notificationId"],
 //     });
 
-//     const readIdsSet = new Set(readRecords.map(r => r.notificationId));
+//     const readIdsSet = new Set(readRecords.map((r) => r.notificationId));
 
-//     const notificationList = notifications.map(notification => ({
+//     const notificationList = notifications.map((notification) => ({
 //       id: notification.id,
 //       title: notification.title,
 //       description: notification.description,
