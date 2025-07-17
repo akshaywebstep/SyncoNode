@@ -70,47 +70,6 @@ exports.markAsRead = async (adminId) => {
 };
 
 // ✅ Get all notifications with read status
-// exports.getAllNotifications = async (adminId, category = null) => {
-//   try {
-//     const whereCondition = {};
-//     if (category) {
-//       whereCondition.category = category;
-//     }
-
-//     const notifications = await Notification.findAll({
-//       where: whereCondition,
-//       order: [["createdAt", "DESC"]],
-//     });
-
-//     const readRecords = await NotificationRead.findAll({
-//       where: { adminId },
-//       attributes: ["notificationId"],
-//     });
-
-//     const readIdsSet = new Set(readRecords.map((r) => r.notificationId));
-
-//     const notificationList = notifications.map((notification) => ({
-//       id: notification.id,
-//       title: notification.title,
-//       description: notification.description,
-//       category: notification.category,
-//       createdAt: notification.createdAt,
-//       isRead: readIdsSet.has(notification.id),
-//     }));
-
-//     return {
-//       status: true,
-//       data: notificationList,
-//       message: `${notificationList.length} notification(s) retrieved successfully.`,
-//     };
-//   } catch (error) {
-//     return {
-//       status: false,
-//       message: `Failed to retrieve notifications. ${error.message}`,
-//     };
-//   }
-// };
-
 exports.getAllNotifications = async (adminId, category = null) => {
   try {
     const whereCondition = {};
@@ -118,31 +77,25 @@ exports.getAllNotifications = async (adminId, category = null) => {
       whereCondition.category = category;
     }
 
-    // ✅ Fetch all notifications (no includes!)
     const notifications = await Notification.findAll({
       where: whereCondition,
       order: [["createdAt", "DESC"]],
-      raw: true, // ensures plain objects
     });
 
-    // ✅ Fetch all read notifications for THIS admin
     const readRecords = await NotificationRead.findAll({
       where: { adminId },
       attributes: ["notificationId"],
-      raw: true,
     });
 
-    // ✅ Put all read IDs in a Set for quick lookup
     const readIdsSet = new Set(readRecords.map((r) => r.notificationId));
 
-    // ✅ Merge result → always `true/false`
-    const notificationList = notifications.map((n) => ({
-      id: n.id,
-      title: n.title,
-      description: n.description,
-      category: n.category,
-      createdAt: n.createdAt,
-      isRead: readIdsSet.has(n.id),
+    const notificationList = notifications.map((notification) => ({
+      id: notification.id,
+      title: notification.title,
+      description: notification.description,
+      category: notification.category,
+      createdAt: notification.createdAt,
+      isRead: readIdsSet.has(notification.id),
     }));
 
     return {
@@ -157,3 +110,50 @@ exports.getAllNotifications = async (adminId, category = null) => {
     };
   }
 };
+
+// exports.getAllNotifications = async (adminId, category = null) => {
+//   try {
+//     const whereCondition = {};
+//     if (category) {
+//       whereCondition.category = category;
+//     }
+
+//     // ✅ Fetch all notifications (no includes!)
+//     const notifications = await Notification.findAll({
+//       where: whereCondition,
+//       order: [["createdAt", "DESC"]],
+//       raw: true, // ensures plain objects
+//     });
+
+//     // ✅ Fetch all read notifications for THIS admin
+//     const readRecords = await NotificationRead.findAll({
+//       where: { adminId },
+//       attributes: ["notificationId"],
+//       raw: true,
+//     });
+
+//     // ✅ Put all read IDs in a Set for quick lookup
+//     const readIdsSet = new Set(readRecords.map((r) => r.notificationId));
+
+//     // ✅ Merge result → always `true/false`
+//     const notificationList = notifications.map((n) => ({
+//       id: n.id,
+//       title: n.title,
+//       description: n.description,
+//       category: n.category,
+//       createdAt: n.createdAt,
+//       isRead: readIdsSet.has(n.id),
+//     }));
+
+//     return {
+//       status: true,
+//       data: notificationList,
+//       message: `${notificationList.length} notification(s) retrieved successfully.`,
+//     };
+//   } catch (error) {
+//     return {
+//       status: false,
+//       message: `Failed to retrieve notifications. ${error.message}`,
+//     };
+//   }
+// };

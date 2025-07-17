@@ -71,7 +71,10 @@ exports.createCustomNotificationReads = async ({
 };
 
 // ✅ Get all custom notifications
-exports.getAllCustomNotifications = async (adminId = null, category = null) => {
+exports.getAllCustomNotificationsRaw = async (
+  adminId = null,
+  category = null
+) => {
   try {
     // Step 1: Fetch all notification read entries for the admin
     const notificationReads = await CustomNotificationRead.findAll({
@@ -120,6 +123,67 @@ exports.getAllCustomNotifications = async (adminId = null, category = null) => {
       status: true,
       message: `${notifications.length} notification(s) retrieved successfully.`,
       data: notifications,
+    };
+  } catch (error) {
+    console.error("❌ Sequelize Error in getAllCustomNotifications:", error);
+    return {
+      status: false,
+      message: `Failed to retrieve custom notifications. ${error.message}`,
+    };
+  }
+};
+
+// ✅ Get all custom notifications
+exports.getAllCustomNotifications = async (adminId, category = null) => {
+  try {
+    // Step 1: Fetch all notification read entries for the admin
+    const notificationReads = await CustomNotificationRead.findAll({
+      where: { adminId },
+      order: [["createdAt", "DESC"]],
+    });
+
+    // Step 2: Create a map of read statuses for quick lookup
+    const readStatusMap = {};
+    notificationReads.forEach((read) => {
+      readStatusMap[read.customNotificationId] = read.status === true; // assuming true means read
+    });
+
+    // Step 3: Extract all custom notification IDs from the reads
+    const customNotificationIds = Object.keys(readStatusMap);
+
+    // Step 4: Build where condition for notifications
+    const whereCondition = {
+      id: customNotificationIds,
+    };
+    if (category) {
+      whereCondition.category = category;
+    }
+
+    // Step 5: Fetch matching notifications
+    const notifications = await CustomNotification.findAll({
+      where: whereCondition,
+      order: [["createdAt", "DESC"]],
+      include: [
+        {
+          model: Admin,
+          as: "admin",
+          attributes: ["id", "firstName", "lastName", "email", "profile"],
+        },
+      ],
+    });
+
+    // Step 6: Append `isRead` based on read status map
+    const formattedNotifications = notifications.map((notification) => {
+      return {
+        ...notification.toJSON(),
+        isRead: readStatusMap[notification.id] || false,
+      };
+    });
+
+    return {
+      status: true,
+      message: `${formattedNotifications.length} notification(s) retrieved successfully.`,
+      data: formattedNotifications,
     };
   } catch (error) {
     console.error("❌ Sequelize Error in getAllCustomNotifications:", error);
