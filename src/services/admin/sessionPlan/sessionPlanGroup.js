@@ -1,4 +1,6 @@
 const { SessionPlanGroup, SessionExercise } = require("../../../models");
+const { saveFile, deleteFile } = require("../../../utils/fileHandler");
+const path = require("path");
 
 // ✅ Create
 exports.createSessionPlanGroup = async (data) => {
@@ -124,20 +126,20 @@ exports.getSessionPlanGroupById = async (id) => {
 };
 
 // ✅ Update
-exports.updateSessionPlanGroup = async (id, data) => {
+exports.updateSessionPlanGroup = async (id, data, files = {}) => {
   try {
     const group = await SessionPlanGroup.findByPk(id);
     if (!group) {
       return { status: false, message: "Session Plan Group not found" };
     }
 
-    const { groupName, bannerUrl, videoUrl, levels } = data;
+    const { groupName, levels } = data;
+    let updatedFields = {};
 
-    // ✅ Validate `sessionExerciseId` if levels provided
+    // ✅ 1. Validate sessionExerciseId if levels provided
     if (levels) {
       const allExerciseIds = [];
 
-      // Collect all sessionExerciseIds from all levels (Beginner, Intermediate, Pro, Advanced)
       Object.values(levels).forEach((levelArray) => {
         levelArray.forEach((entry) => {
           if (Array.isArray(entry.sessionExerciseId)) {
@@ -165,15 +167,60 @@ exports.updateSessionPlanGroup = async (id, data) => {
           };
         }
       }
+
+      updatedFields.levels = levels;
     }
 
-    // ✅ Merge and update only provided fields
-    await group.update({
-      groupName: groupName ?? group.groupName,
-      bannerUrl: bannerUrl !== undefined ? bannerUrl : group.bannerUrl,
-      videoUrl: videoUrl !== undefined ? videoUrl : group.videoUrl,
-      levels: levels ?? group.levels,
-    });
+    if (groupName) updatedFields.groupName = groupName;
+
+    // ✅ 2. Handle banner upload
+    if (files.banner?.[0]) {
+      const bannerFile = files.banner[0];
+
+      // Delete old banner if exists
+      if (group.bannerUrl) {
+        deleteFile(path.join(process.cwd(), group.bannerUrl));
+      }
+
+      const ext = path.extname(bannerFile.originalname).toLowerCase();
+      const uniqueName = `banner_${Date.now()}${ext}`;
+      const savePath = path.join(
+        process.cwd(),
+        "uploads",
+        "session-plan-groups",
+        id.toString(),
+        uniqueName
+      );
+
+      await saveFile(bannerFile, savePath);
+      updatedFields.bannerUrl = `uploads/session-plan-groups/${id}/${uniqueName}`;
+    }
+
+    // ✅ 3. Handle video upload
+    if (files.video?.[0]) {
+      const videoFile = files.video[0];
+
+      // Delete old video if exists
+      if (group.videoUrl) {
+        deleteFile(path.join(process.cwd(), group.videoUrl));
+      }
+
+      const ext = path.extname(videoFile.originalname).toLowerCase();
+      const uniqueName = `video_${Date.now()}${ext}`;
+      const savePath = path.join(
+        process.cwd(),
+        "uploads",
+        "session-plan-groups",
+        id.toString(),
+        uniqueName
+      );
+
+      await saveFile(videoFile, savePath);
+      updatedFields.videoUrl = `uploads/session-plan-groups/${id}/${uniqueName}`;
+    }
+
+    // ✅ 4. Update in DB
+    await group.update(updatedFields);
 
     return { status: true, data: group };
   } catch (error) {

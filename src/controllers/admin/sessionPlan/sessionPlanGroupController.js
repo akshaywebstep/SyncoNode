@@ -1,6 +1,9 @@
 const { validateFormData } = require("../../../utils/validateFormData");
 const SessionPlanGroupService = require("../../../services/admin/sessionPlan/sessionPlanGroup");
 const { logActivity } = require("../../../utils/admin/activityLogger");
+const path = require("path");
+// const { saveFile, deleteFile } = require("../../../utils/fileHandler");
+const { saveFile, deleteFile } = require("../../../utils/fileHandler");
 
 const DEBUG = process.env.DEBUG === "true";
 const PANEL = "admin";
@@ -28,10 +31,6 @@ exports.createSessionPlanGroup = async (req, res) => {
     return res.status(400).json({ status: false, ...validation });
   }
 
-  // ✅ Handle file paths
-  const bannerUrl = files.banner ? `uploads/${files.banner[0].filename}` : null;
-  const videoUrl = files.video ? `uploads/${files.video[0].filename}` : null;
-
   // ✅ Parse levels JSON safely
   let parsedLevels;
   try {
@@ -40,6 +39,49 @@ exports.createSessionPlanGroup = async (req, res) => {
     return res
       .status(400)
       .json({ status: false, message: "Invalid JSON for levels" });
+  }
+
+  // ✅ Prepare paths for uploaded files
+  let bannerUrl = null;
+  let videoUrl = null;
+
+  try {
+    const baseUploadDir = path.join(
+      process.cwd(),
+      "uploads",
+      "session-plan-groups"
+    );
+
+    if (files.banner?.length > 0) {
+      const bannerFile = files.banner[0];
+      const bannerExt = path.extname(bannerFile.originalname).toLowerCase();
+      const bannerName = `${Date.now()}_${Math.floor(
+        Math.random() * 1e9
+      )}${bannerExt}`;
+      const bannerFullPath = path.join(baseUploadDir, bannerName);
+
+      await saveFile(bannerFile, bannerFullPath);
+      bannerUrl = `uploads/session-plan-groups/${bannerName}`;
+      if (DEBUG) console.log("✅ Banner saved:", bannerUrl);
+    }
+
+    if (files.video?.length > 0) {
+      const videoFile = files.video[0];
+      const videoExt = path.extname(videoFile.originalname).toLowerCase();
+      const videoName = `${Date.now()}_${Math.floor(
+        Math.random() * 1e9
+      )}${videoExt}`;
+      const videoFullPath = path.join(baseUploadDir, videoName);
+
+      await saveFile(videoFile, videoFullPath);
+      videoUrl = `uploads/session-plan-groups/${videoName}`;
+      if (DEBUG) console.log("✅ Video saved:", videoUrl);
+    }
+  } catch (fileErr) {
+    console.error("❌ File save error:", fileErr);
+    return res
+      .status(500)
+      .json({ status: false, message: "Failed to save banner/video" });
   }
 
   try {
@@ -168,15 +210,7 @@ exports.updateSessionPlanGroup = async (req, res) => {
 
   if (DEBUG) console.log(`✏️ Updating Session Plan Group ID: ${id}`, req.body);
 
-  // ✅ File handling (ignored if not required)
-  const bannerUrl = files.banner
-    ? `uploads/${files.banner[0].filename}`
-    : undefined;
-  const videoUrl = files.video
-    ? `uploads/${files.video[0].filename}`
-    : undefined;
-
-  // ✅ Parse levels JSON
+  // ✅ Parse levels JSON safely
   let parsedLevels;
   if (levels) {
     try {
@@ -190,12 +224,12 @@ exports.updateSessionPlanGroup = async (req, res) => {
   }
 
   try {
-    const result = await SessionPlanGroupService.updateSessionPlanGroup(id, {
-      groupName,
-      bannerUrl,
-      videoUrl,
-      levels: parsedLevels,
-    });
+    // ✅ Call service → Let service handle saving banner/video
+    const result = await SessionPlanGroupService.updateSessionPlanGroup(
+      id,
+      { groupName, levels: parsedLevels },
+      files
+    );
 
     if (!result.status) {
       if (DEBUG) console.log("⚠️ Update failed:", result.message);
@@ -204,13 +238,14 @@ exports.updateSessionPlanGroup = async (req, res) => {
 
     const updated = result.data;
 
-    // ✅ Extract only required fields
     const responseData = {
       groupName: updated.groupName,
+      bannerUrl: updated.bannerUrl,
+      videoUrl: updated.videoUrl,
       levels: updated.levels,
     };
 
-    if (DEBUG) console.log("✅ Clean Response:", responseData);
+    if (DEBUG) console.log("✅ Updated Session Plan Group:", responseData);
 
     await logActivity(
       req,
